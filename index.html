@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MapToPoster</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #111;
+      color: #ddd;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    .app {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 24px;
+    }
+    h1 {
+      grid-column: 1 / -1;
+      font-weight: 200;
+      letter-spacing: 6px;
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    .panel { display: flex; flex-direction: column; gap: 12px; }
+    label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #666; }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #333;
+      background: #1a1a1a;
+      color: #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    input:focus, select:focus { outline: none; border-color: #555; }
+    .search-box { position: relative; }
+    .results {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      max-height: 180px;
+      overflow-y: auto;
+      display: none;
+      z-index: 10;
+    }
+    .results.open { display: block; }
+    .results div {
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 13px;
+      border-bottom: 1px solid #282828;
+    }
+    .results div:hover { background: #252525; }
+    .results small { color: #555; font-size: 10px; }
+    .selected { color: #6af; font-size: 13px; min-height: 18px; margin: -4px 0 4px; }
+    .row { display: flex; gap: 8px; }
+    .row label { flex: 1; }
+    .row input[type="radio"] { width: auto; margin-right: 4px; }
+    .radio-group { display: flex; gap: 12px; margin-top: 4px; }
+    .radio-group label { display: flex; align-items: center; font-size: 13px; text-transform: none; color: #ddd; cursor: pointer; }
+    .theme-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+    .theme-preview {
+      width: 60px;
+      height: 36px;
+      border-radius: 4px;
+      display: flex;
+      overflow: hidden;
+      border: 1px solid #333;
+    }
+    .theme-preview span { flex: 1; }
+    button {
+      padding: 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .btn-go { background: #4a9eff; color: #fff; }
+    .btn-go:hover { background: #3a8eef; }
+    .btn-go:disabled { background: #333; color: #555; cursor: not-allowed; }
+    .btn-dl { background: #2a2a2a; color: #aaa; }
+    .btn-dl:hover:not(:disabled) { background: #333; }
+    .btn-dl:disabled { opacity: 0.4; cursor: not-allowed; }
+    .status { font-size: 12px; color: #666; min-height: 16px; }
+    .status.err { color: #f66; }
+    .preview { display: flex; justify-content: center; align-items: flex-start; }
+    #preview { max-width: 100%; max-height: 75vh; border: 1px solid #333; background: #000; }
+    #offscreen { display: none; }
+    .divider { border-top: 1px solid #282828; margin: 4px 0; }
+    @media (max-width: 700px) { .app { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="app">
+  <h1>MAPTOPOSTER</h1>
+  <div class="panel">
+    <label>Search City
+      <div class="search-box">
+        <input type="text" id="search" placeholder="Type a city name..." autocomplete="off">
+        <div class="results" id="results"></div>
+      </div>
+    </label>
+    <div class="selected" id="selected"></div>
+
+    <div class="divider"></div>
+
+    <div class="theme-row">
+      <label>Theme
+        <select id="theme"></select>
+      </label>
+      <div class="theme-preview" id="themePreview"></div>
+    </div>
+
+    <label>
+      <input type="checkbox" id="water" checked style="width:auto"> Show water bodies
+    </label>
+
+    <div class="divider"></div>
+
+    <label>Orientation
+      <div class="radio-group">
+        <label><input type="radio" name="orient" value="portrait" checked> Portrait</label>
+        <label><input type="radio" name="orient" value="landscape"> Landscape</label>
+      </div>
+    </label>
+
+    <label>Size
+      <div class="radio-group">
+        <label><input type="radio" name="size" value="5x7" checked> 5×7"</label>
+        <label><input type="radio" name="size" value="8x10"> 8×10"</label>
+      </div>
+    </label>
+
+    <label>Fallback Radius: <span id="radVal">6 mi</span>
+      <input type="range" id="radius" min="4000" max="40000" value="10000" step="1000">
+    </label>
+    <div style="font-size:10px;color:#555;margin-top:-8px;">Used when city boundary unavailable</div>
+
+    <div class="divider"></div>
+
+    <button class="btn-go" id="generate">Generate Preview</button>
+    <button class="btn-dl" id="download" disabled>Download PNG</button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="preview">
+    <canvas id="preview"></canvas>
+  </div>
+</div>
+<canvas id="offscreen"></canvas>
+
+<script>
+const THEMES = {
+  noir: {
+    name: "Noir",
+    desc: "Classic dark",
+    bg: "#0a0a0a", text: "#fff", water: "#151520",
+    roads: ["#fff", "#ccc", "#999", "#666", "#444"]
+  },
+  parchment: {
+    name: "Ancient Parchment",
+    desc: "Lord of the Rings style",
+    bg: "#d4c4a8", text: "#2a1f14", water: "#8b9a7d",
+    roads: ["#2a1f14", "#3d2e1f", "#5a4632", "#7a6652", "#9a8672"]
+  },
+  hologram: {
+    name: "Hologram",
+    desc: "Sci-fi futuristic",
+    bg: "#050510", text: "#0ff", water: "#001a1a",
+    roads: ["#0ff", "#0af", "#08f", "#06a", "#035"]
+  },
+  neon: {
+    name: "Neon City",
+    desc: "Cyberpunk nights",
+    bg: "#0a0012", text: "#f0f", water: "#0f0a1a",
+    roads: ["#0ff", "#f0f", "#ff0", "#f60", "#609"]
+  },
+  comic: {
+    name: "Comic Pop",
+    desc: "Bold cartoon style",
+    bg: "#fff", text: "#000", water: "#7ec8e3",
+    roads: ["#000", "#e63946", "#f4a261", "#2a9d8f", "#264653"]
+  },
+  candy: {
+    name: "Candy",
+    desc: "Bright & playful",
+    bg: "#fff5f5", text: "#d63384", water: "#a8e6cf",
+    roads: ["#d63384", "#ff6b6b", "#feca57", "#48dbfb", "#a55eea"]
+  },
+  midnight: {
+    name: "Midnight Blue",
+    desc: "Deep ocean tones",
+    bg: "#0d1b2a", text: "#e0e1dd", water: "#1b263b",
+    roads: ["#ffd700", "#e0e1dd", "#778da9", "#415a77", "#1b263b"]
+  },
+  blueprint: {
+    name: "Blueprint",
+    desc: "Technical drafting",
+    bg: "#0a2463", text: "#fff", water: "#061539",
+    roads: ["#fff", "#d4e4f7", "#9db4ce", "#6884a5", "#3e5c76"]
+  },
+  sepia: {
+    name: "Vintage Sepia",
+    desc: "Old photograph",
+    bg: "#f5f0e6", text: "#2c2c2c", water: "#d4c4a8",
+    roads: ["#2c2c2c", "#4a4a4a", "#6a6a6a", "#9a9a9a", "#c0c0c0"]
+  },
+  forest: {
+    name: "Enchanted Forest",
+    desc: "Deep woodland",
+    bg: "#0f1a0f", text: "#98d982", water: "#0a120a",
+    roads: ["#98d982", "#6ab04c", "#4a8030", "#2a5010", "#1a3008"]
+  },
+  sunset: {
+    name: "Sunset",
+    desc: "Warm golden hour",
+    bg: "#1a0a0a", text: "#ffd700", water: "#2d1f1f",
+    roads: ["#ff6b35", "#f7c59f", "#efa48b", "#d7816a", "#bd4f6c"]
+  },
+  ice: {
+    name: "Frozen",
+    desc: "Arctic cold",
+    bg: "#e8f4f8", text: "#1a3a4a", water: "#a8d4e6",
+    roads: ["#1a3a4a", "#2a5a7a", "#4a8aaa", "#7abacc", "#aadaee"]
+  }
+};
+
+const ROAD_TYPES = ['motorway','motorway_link','trunk','trunk_link','primary','primary_link','secondary','secondary_link','tertiary','tertiary_link','residential','living_street','unclassified'];
+
+const SIZES = {
+  '5x7': { portrait: [1500, 2100], landscape: [2100, 1500] },
+  '8x10': { portrait: [2400, 3000], landscape: [3000, 2400] }
+};
+
+let place = null, data = null;
+
+const $ = id => document.getElementById(id);
+const searchEl = $('search'), resultsEl = $('results'), selectedEl = $('selected');
+const themeEl = $('theme'), previewEl = $('themePreview'), waterEl = $('water');
+const radiusEl = $('radius'), radValEl = $('radVal');
+const genBtn = $('generate'), dlBtn = $('download'), statusEl = $('status');
+const canvas = $('preview'), offscreen = $('offscreen');
+
+// Init themes
+Object.entries(THEMES).forEach(([k, t]) => {
+  const opt = document.createElement('option');
+  opt.value = k;
+  opt.textContent = `${t.name} — ${t.desc}`;
+  themeEl.appendChild(opt);
+});
+
+function updatePreview() {
+  const t = THEMES[themeEl.value];
+  previewEl.style.background = t.bg;
+  previewEl.innerHTML = t.roads.map(c => `<span style="background:${c}"></span>`).join('');
+}
+themeEl.onchange = () => { updatePreview(); if (data) render(canvas, true); };
+updatePreview();
+
+radiusEl.oninput = () => radValEl.textContent = `${Math.round(radiusEl.value / 1609)} mi`;
+
+// Search
+let searchTimer;
+searchEl.oninput = () => {
+  clearTimeout(searchTimer);
+  const q = searchEl.value.trim();
+  if (q.length < 2) { resultsEl.classList.remove('open'); return; }
+  searchTimer = setTimeout(() => doSearch(q), 250);
+};
+searchEl.onfocus = () => { if (resultsEl.children.length) resultsEl.classList.add('open'); };
+document.onclick = e => { if (!e.target.closest('.search-box')) resultsEl.classList.remove('open'); };
+
+async function doSearch(q) {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1`, {
+      headers: { 'User-Agent': 'MapToPoster/1.0' }
+    });
+    const list = await r.json();
+    resultsEl.innerHTML = list.map((p, i) => `<div data-i="${i}">${p.display_name}<br><small>${p.type}</small></div>`).join('');
+    resultsEl.classList.toggle('open', list.length > 0);
+    resultsEl.querySelectorAll('div').forEach((el, i) => {
+      el.onclick = () => selectPlace(list[i]);
+    });
+  } catch (e) { console.error(e); }
+}
+
+function selectPlace(p) {
+  place = p;
+  const addr = p.address || {};
+  const city = addr.city || addr.town || addr.village || addr.municipality || p.name || '';
+  const country = addr.country || '';
+  selectedEl.textContent = city + (country ? `, ${country}` : '');
+  selectedEl.dataset.city = city;
+  selectedEl.dataset.country = country;
+  searchEl.value = '';
+  resultsEl.classList.remove('open');
+}
+
+function status(msg, err) {
+  statusEl.textContent = msg;
+  statusEl.className = 'status' + (err ? ' err' : '');
+}
+
+function getSize() {
+  const s = document.querySelector('[name="size"]:checked').value;
+  const o = document.querySelector('[name="orient"]:checked').value;
+  const [w, h] = SIZES[s][o];
+  return { w, h, label: s, orient: o };
+}
+
+async function fetchData(areaId, lat, lon, radius) {
+  const types = ROAD_TYPES.join('|');
+  const useArea = areaId !== null;
+  
+  const streetQ = useArea
+    ? `[out:json][timeout:120];area(${areaId})->.a;way(area.a)["highway"~"^(${types})$"];out geom;`
+    : `[out:json][timeout:120];way["highway"~"^(${types})$"](around:${radius},${lat},${lon});out geom;`;
+  
+  const streetRes = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: streetQ });
+  if (!streetRes.ok) throw new Error('Street fetch failed');
+  const streets = await streetRes.json();
+  
+  let water = { elements: [] };
+  if (waterEl.checked) {
+    const waterQ = useArea
+      ? `[out:json][timeout:60];area(${areaId})->.a;(way(area.a)["natural"="water"];way(area.a)["waterway"~"river|canal"];);out geom;`
+      : `[out:json][timeout:60];(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal"](around:${radius},${lat},${lon}););out geom;`;
+    try {
+      const waterRes = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: waterQ });
+      if (waterRes.ok) water = await waterRes.json();
+    } catch (e) { console.warn('Water fetch failed', e); }
+  }
+  
+  return { streets, water };
+}
+
+function calcBounds(streets, water) {
+  let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+  const process = els => els.forEach(el => {
+    (el.geometry || []).forEach(p => {
+      minLat = Math.min(minLat, p.lat); maxLat = Math.max(maxLat, p.lat);
+      minLon = Math.min(minLon, p.lon); maxLon = Math.max(maxLon, p.lon);
+    });
+  });
+  process(streets.elements || []);
+  process(water.elements || []);
+  const pad = 0.05;
+  const dLat = (maxLat - minLat) * pad, dLon = (maxLon - minLon) * pad;
+  return { minLat: minLat - dLat, maxLat: maxLat + dLat, minLon: minLon - dLon, maxLon: maxLon + dLon };
+}
+
+function render(cvs, isPreview) {
+  const { w: fullW, h: fullH, orient } = getSize();
+  const theme = THEMES[themeEl.value];
+  const scale = isPreview ? 0.3 : 1;
+  const w = Math.round(fullW * scale), h = Math.round(fullH * scale);
+  
+  cvs.width = w; cvs.height = h;
+  const ctx = cvs.getContext('2d');
+  
+  // Background
+  ctx.fillStyle = theme.bg;
+  ctx.fillRect(0, 0, w, h);
+  
+  // Map area
+  const margin = Math.min(w, h) * 0.05;
+  const isLandscape = orient === 'landscape';
+  const mapW = w - margin * 2;
+  const mapH = isLandscape ? h * 0.68 : h * 0.72;
+  const mapTop = margin;
+  
+  // Fit bounds to map area
+  const b = data.bounds;
+  const dataAspect = (b.maxLon - b.minLon) / (b.maxLat - b.minLat);
+  const mapAspect = mapW / mapH;
+  const adj = { ...b };
+  
+  if (dataAspect > mapAspect) {
+    const latC = (b.minLat + b.maxLat) / 2, range = (b.maxLon - b.minLon) / mapAspect;
+    adj.minLat = latC - range / 2; adj.maxLat = latC + range / 2;
+  } else {
+    const lonC = (b.minLon + b.maxLon) / 2, range = (b.maxLat - b.minLat) * mapAspect;
+    adj.minLon = lonC - range / 2; adj.maxLon = lonC + range / 2;
+  }
+  
+  const proj = (lat, lon) => [
+    margin + ((lon - adj.minLon) / (adj.maxLon - adj.minLon)) * mapW,
+    mapTop + ((adj.maxLat - lat) / (adj.maxLat - adj.minLat)) * mapH
+  ];
+  
+  // Draw water
+  if (waterEl.checked && data.water?.elements) {
+    ctx.fillStyle = theme.water;
+    ctx.strokeStyle = theme.water;
+    ctx.lineWidth = 1.5 * scale;
+    data.water.elements.forEach(el => {
+      if (!el.geometry) return;
+      ctx.beginPath();
+      el.geometry.forEach((p, i) => {
+        const [x, y] = proj(p.lat, p.lon);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      const g = el.geometry;
+      (g[0].lat === g[g.length-1].lat && g[0].lon === g[g.length-1].lon) ? ctx.fill() : ctx.stroke();
+    });
+  }
+  
+  // Group and draw roads
+  const groups = { motorway: [], primary: [], secondary: [], tertiary: [], residential: [] };
+  (data.streets.elements || []).forEach(el => {
+    if (el.type !== 'way' || !el.geometry) return;
+    const hw = el.tags?.highway?.replace('_link', '') || '';
+    if (hw === 'motorway' || hw === 'trunk') groups.motorway.push(el);
+    else if (hw === 'primary') groups.primary.push(el);
+    else if (hw === 'secondary') groups.secondary.push(el);
+    else if (hw === 'tertiary') groups.tertiary.push(el);
+    else groups.residential.push(el);
+  });
+  
+  const widths = [2.5, 2, 1.5, 1, 0.5];
+  const order = ['residential', 'tertiary', 'secondary', 'primary', 'motorway'];
+  order.forEach((grp, i) => {
+    const roads = groups[grp];
+    if (!roads.length) return;
+    ctx.strokeStyle = theme.roads[4 - i];
+    ctx.lineWidth = widths[4 - i] * scale * (isPreview ? 1.3 : 1);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    roads.forEach(r => {
+      ctx.beginPath();
+      r.geometry.forEach((p, j) => {
+        const [x, y] = proj(p.lat, p.lon);
+        j === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    });
+  });
+  
+  // Gradient fades
+  const fadeH = h * 0.08;
+  let grad = ctx.createLinearGradient(0, 0, 0, fadeH);
+  grad.addColorStop(0, theme.bg); grad.addColorStop(1, theme.bg + '00');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, fadeH);
+  
+  grad = ctx.createLinearGradient(0, mapTop + mapH - fadeH, 0, mapTop + mapH + fadeH * 0.5);
+  grad.addColorStop(0, theme.bg + '00'); grad.addColorStop(1, theme.bg);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, mapTop + mapH - fadeH, w, fadeH * 1.5);
+  
+  // Text
+  const textY = mapTop + mapH + margin * (isLandscape ? 0.6 : 0.8);
+  ctx.textAlign = 'center';
+  
+  // City name with spacing
+  const citySize = Math.round((isLandscape ? 40 : 48) * scale);
+  ctx.font = `300 ${citySize}px system-ui, sans-serif`;
+  ctx.fillStyle = theme.text;
+  const city = data.city.toUpperCase();
+  const spacing = 10 * scale;
+  let tw = 0;
+  for (const c of city) tw += ctx.measureText(c).width + spacing;
+  tw -= spacing;
+  let x = (w - tw) / 2;
+  for (const c of city) {
+    ctx.fillText(c, x + ctx.measureText(c).width / 2, textY);
+    x += ctx.measureText(c).width + spacing;
+  }
+  
+  // Line
+  const lineY = textY + citySize * 0.35;
+  ctx.strokeStyle = theme.text + '40';
+  ctx.lineWidth = scale;
+  ctx.beginPath();
+  ctx.moveTo(w/2 - 30*scale, lineY);
+  ctx.lineTo(w/2 + 30*scale, lineY);
+  ctx.stroke();
+  
+  // Country
+  const countrySize = Math.round(18 * scale);
+  ctx.font = `400 ${countrySize}px system-ui, sans-serif`;
+  ctx.fillStyle = theme.text + 'cc';
+  ctx.fillText(data.country.toUpperCase(), w/2, lineY + countrySize * 1.4);
+  
+  // Coords
+  const coordSize = Math.round(12 * scale);
+  ctx.font = `300 ${coordSize}px system-ui, sans-serif`;
+  ctx.fillStyle = theme.text + '88';
+  const lat = data.lat, lon = data.lon;
+  const coords = `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(4)}°${lon >= 0 ? 'E' : 'W'}`;
+  ctx.fillText(coords, w/2, lineY + countrySize * 1.4 + coordSize * 1.6);
+}
+
+genBtn.onclick = async () => {
+  if (!place) { status('Select a city first', true); return; }
+  
+  genBtn.disabled = true;
+  dlBtn.disabled = true;
+  
+  try {
+    const lat = parseFloat(place.lat), lon = parseFloat(place.lon);
+    const useArea = place.osm_type === 'relation';
+    const areaId = useArea ? 3600000000 + parseInt(place.osm_id) : null;
+    
+    status(useArea ? 'Fetching city boundary data...' : `Fetching ${Math.round(radiusEl.value/1609)}mi radius...`);
+    
+    const { streets, water } = await fetchData(areaId, lat, lon, parseInt(radiusEl.value));
+    
+    if (!streets.elements?.length) throw new Error('No street data found');
+    
+    const bounds = calcBounds(streets, water);
+    
+    data = {
+      city: selectedEl.dataset.city,
+      country: selectedEl.dataset.country,
+      lat, lon, streets, water, bounds
+    };
+    
+    status('Rendering...');
+    render(canvas, true);
+    
+    status(`${streets.elements.length} roads` + (water.elements?.length ? `, ${water.elements.length} water features` : ''));
+    dlBtn.disabled = false;
+  } catch (e) {
+    status(e.message, true);
+    console.error(e);
+  } finally {
+    genBtn.disabled = false;
+  }
+};
+
+dlBtn.onclick = () => {
+  if (!data) return;
+  render(offscreen, false);
+  const a = document.createElement('a');
+  const { label, orient } = getSize();
+  a.download = `${data.city.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${label}-${orient}-${themeEl.value}.png`;
+  a.href = offscreen.toDataURL('image/png');
+  a.click();
+  status('Downloaded!');
+};
+
+// Re-render on option changes
+document.querySelectorAll('[name="size"], [name="orient"]').forEach(el => {
+  el.onchange = () => { if (data) render(canvas, true); };
+});
+waterEl.onchange = () => { if (data) render(canvas, true); };
+</script>
+</body>
+</html>
