@@ -6,12 +6,36 @@
   <title>MapToPoster</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    :root {
+      --bg: #111;
+      --bg2: #1a1a1a;
+      --bg3: #252525;
+      --border: #333;
+      --text: #ddd;
+      --text2: #888;
+      --text3: #555;
+      --accent: #4a9eff;
+    }
+    
+    [data-ui="classic"] {
+      --bg: #e8e4dc;
+      --bg2: #f5f2eb;
+      --bg3: #fff;
+      --border: #c9c4b8;
+      --text: #2c2416;
+      --text2: #5a5347;
+      --text3: #8a8478;
+      --accent: #1a6b4a;
+    }
+    
     body {
       font-family: system-ui, -apple-system, sans-serif;
-      background: #111;
-      color: #ddd;
+      background: var(--bg);
+      color: var(--text);
       padding: 20px;
       min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
     }
     .app {
       max-width: 1100px;
@@ -20,52 +44,83 @@
       grid-template-columns: 300px 1fr;
       gap: 24px;
     }
-    h1 {
+    .header {
       grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    h1 {
       font-weight: 200;
       letter-spacing: 6px;
       font-size: 24px;
-      margin-bottom: 8px;
+    }
+    .ui-toggle {
+      display: flex;
+      gap: 4px;
+      background: var(--bg2);
+      padding: 4px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    .ui-toggle button {
+      padding: 6px 12px;
+      border: none;
+      background: transparent;
+      color: var(--text2);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+    .ui-toggle button.active {
+      background: var(--accent);
+      color: #fff;
+    }
+    .ui-toggle button:hover:not(.active) {
+      background: var(--bg3);
     }
     .panel { display: flex; flex-direction: column; gap: 12px; }
-    label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #666; }
+    label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); }
     input, select {
       width: 100%;
       padding: 10px;
-      border: 1px solid #333;
-      background: #1a1a1a;
-      color: #ddd;
+      border: 1px solid var(--border);
+      background: var(--bg2);
+      color: var(--text);
       border-radius: 4px;
       font-size: 14px;
+      transition: all 0.2s;
     }
-    input:focus, select:focus { outline: none; border-color: #555; }
+    input:focus, select:focus { outline: none; border-color: var(--accent); }
     .search-box { position: relative; }
     .results {
       position: absolute;
       top: 100%;
       left: 0;
       right: 0;
-      background: #1a1a1a;
-      border: 1px solid #333;
+      background: var(--bg2);
+      border: 1px solid var(--border);
       border-top: none;
       border-radius: 0 0 4px 4px;
-      max-height: 180px;
+      max-height: 200px;
       overflow-y: auto;
       display: none;
       z-index: 10;
     }
     .results.open { display: block; }
     .results div {
-      padding: 8px 10px;
+      padding: 10px 12px;
       cursor: pointer;
       font-size: 13px;
-      border-bottom: 1px solid #282828;
+      border-bottom: 1px solid var(--border);
     }
-    .results div:hover { background: #252525; }
-    .results small { color: #555; font-size: 10px; }
-    .selected { color: #6af; font-size: 13px; min-height: 18px; margin: -4px 0 4px; }
+    .results div:hover { background: var(--bg3); }
+    .results small { color: var(--text3); font-size: 10px; }
+    .selected { color: var(--accent); font-size: 13px; min-height: 18px; margin: -4px 0 4px; }
     .radio-group { display: flex; gap: 12px; margin-top: 4px; }
-    .radio-group label { display: flex; align-items: center; font-size: 13px; text-transform: none; color: #ddd; cursor: pointer; }
+    .radio-group label { display: flex; align-items: center; font-size: 13px; text-transform: none; color: var(--text); cursor: pointer; }
     .theme-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
     .theme-preview {
       width: 60px;
@@ -73,7 +128,7 @@
       border-radius: 4px;
       display: flex;
       overflow: hidden;
-      border: 1px solid #333;
+      border: 1px solid var(--border);
     }
     .theme-preview span { flex: 1; }
     button {
@@ -84,29 +139,27 @@
       cursor: pointer;
       text-transform: uppercase;
       letter-spacing: 1px;
+      transition: all 0.2s;
     }
-    .btn-go { background: #4a9eff; color: #fff; }
-    .btn-go:hover { background: #3a8eef; }
-    .btn-go:disabled { background: #333; color: #555; cursor: not-allowed; }
-    .btn-dl { background: #2a2a2a; color: #aaa; }
-    .btn-dl:hover:not(:disabled) { background: #333; }
-    .btn-dl:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-compare { background: #2a2a2a; color: #aaa; }
-    .btn-compare:hover:not(:disabled) { background: #383838; }
-    .btn-compare:disabled { opacity: 0.4; cursor: not-allowed; }
-    .status { font-size: 12px; color: #666; min-height: 16px; }
-    .status.err { color: #f66; }
-    .preview { display: flex; justify-content: center; align-items: flex-start; }
-    #preview { max-width: 100%; max-height: 75vh; border: 1px solid #333; background: #000; }
+    .btn-go { background: var(--accent); color: #fff; }
+    .btn-go:hover { filter: brightness(1.1); }
+    .btn-go:disabled { background: var(--bg3); color: var(--text3); cursor: not-allowed; filter: none; }
+    .btn-secondary { background: var(--bg2); color: var(--text2); border: 1px solid var(--border); }
+    .btn-secondary:hover:not(:disabled) { background: var(--bg3); }
+    .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .status { font-size: 12px; color: var(--text2); min-height: 16px; }
+    .status.err { color: #e55; }
+    .preview-area { display: flex; justify-content: center; align-items: flex-start; }
+    #preview { max-width: 100%; max-height: 75vh; border: 1px solid var(--border); background: #000; }
     #offscreen { display: none; }
-    .divider { border-top: 1px solid #282828; margin: 4px 0; }
+    .divider { border-top: 1px solid var(--border); margin: 4px 0; }
     
-    /* Compare Modal */
+    /* Modal */
     .modal {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.95);
+      background: rgba(0,0,0,0.9);
       z-index: 100;
       overflow-y: auto;
       padding: 20px;
@@ -123,6 +176,7 @@
       font-weight: 300;
       letter-spacing: 2px;
       font-size: 18px;
+      color: #fff;
     }
     .modal-close {
       background: #333;
@@ -137,8 +191,8 @@
     .modal-close:hover { background: #444; }
     .theme-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 20px;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
       max-width: 1400px;
       margin: 0 auto;
     }
@@ -151,44 +205,55 @@
     }
     .theme-card:hover {
       transform: translateY(-4px);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     }
-    .theme-card canvas {
-      width: 100%;
-      display: block;
-    }
+    .theme-card canvas { width: 100%; display: block; }
     .theme-card-info {
-      padding: 12px;
+      padding: 10px 12px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .theme-card-name {
-      font-size: 14px;
-      font-weight: 500;
-    }
-    .theme-card-desc {
-      font-size: 11px;
-      color: #666;
-    }
+    .theme-card-name { font-size: 13px; font-weight: 500; color: #fff; }
+    .theme-card-desc { font-size: 10px; color: #666; }
     .theme-card-select {
-      background: #4a9eff;
+      background: var(--accent);
       border: none;
       color: #fff;
-      padding: 6px 12px;
+      padding: 5px 10px;
       border-radius: 4px;
-      font-size: 11px;
+      font-size: 10px;
       cursor: pointer;
       text-transform: uppercase;
     }
-    .theme-card-select:hover { background: #3a8eef; }
+    
+    /* Loading spinner */
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--text3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
     
     @media (max-width: 700px) { .app { grid-template-columns: 1fr; } }
   </style>
 </head>
-<body>
+<body data-ui="dark">
 <div class="app">
-  <h1>MAPTOPOSTER</h1>
+  <div class="header">
+    <h1>MAPTOPOSTER</h1>
+    <div class="ui-toggle">
+      <button id="uiClassic">Classic</button>
+      <button id="uiDark" class="active">Dark</button>
+    </div>
+  </div>
+  
   <div class="panel">
     <label>Search City
       <div class="search-box">
@@ -201,14 +266,15 @@
     <div class="divider"></div>
 
     <div class="theme-row">
-      <label>Theme
+      <label>Map Theme
         <select id="theme"></select>
       </label>
       <div class="theme-preview" id="themePreview"></div>
     </div>
 
-    <label>
-      <input type="checkbox" id="water" checked style="width:auto"> Show water bodies
+    <label style="flex-direction:row;align-items:center;gap:8px;cursor:pointer;">
+      <input type="checkbox" id="water" checked style="width:auto;margin:0;"> 
+      <span style="text-transform:none;color:var(--text);font-size:13px;">Show water bodies</span>
     </label>
 
     <div class="divider"></div>
@@ -230,17 +296,17 @@
     <label>Fallback Radius: <span id="radVal">6 mi</span>
       <input type="range" id="radius" min="4000" max="40000" value="10000" step="1000">
     </label>
-    <div style="font-size:10px;color:#555;margin-top:-8px;">Used when city boundary unavailable</div>
+    <div style="font-size:10px;color:var(--text3);margin-top:-8px;">Used when city boundary unavailable</div>
 
     <div class="divider"></div>
 
     <button class="btn-go" id="generate">Generate Preview</button>
-    <button class="btn-compare" id="compare" disabled>Compare All Themes</button>
-    <button class="btn-dl" id="download" disabled>Download PNG</button>
+    <button class="btn-secondary" id="compare" disabled>Compare All Themes</button>
+    <button class="btn-secondary" id="download" disabled>Download PNG</button>
     <div class="status" id="status"></div>
   </div>
 
-  <div class="preview">
+  <div class="preview-area">
     <canvas id="preview"></canvas>
   </div>
 </div>
@@ -265,7 +331,7 @@ const THEMES = {
   },
   parchment: {
     name: "Ancient Parchment",
-    desc: "Lord of the Rings style",
+    desc: "Fantasy map style",
     bg: "#d4c4a8", text: "#2a1f14", water: "#8b9a7d",
     roads: ["#2a1f14", "#3d2e1f", "#5a4632", "#7a6652", "#9a8672"]
   },
@@ -347,8 +413,25 @@ const radiusEl = $('radius'), radValEl = $('radVal');
 const genBtn = $('generate'), dlBtn = $('download'), compareBtn = $('compare'), statusEl = $('status');
 const canvas = $('preview'), offscreen = $('offscreen');
 const modal = $('modal'), modalClose = $('modalClose'), themeGrid = $('themeGrid');
+const uiClassic = $('uiClassic'), uiDark = $('uiDark');
 
-// Init themes
+// UI theme toggle
+uiClassic.onclick = () => {
+  document.body.dataset.ui = 'classic';
+  uiClassic.classList.add('active');
+  uiDark.classList.remove('active');
+  localStorage.setItem('ui', 'classic');
+};
+uiDark.onclick = () => {
+  document.body.dataset.ui = 'dark';
+  uiDark.classList.add('active');
+  uiClassic.classList.remove('active');
+  localStorage.setItem('ui', 'dark');
+};
+// Load saved preference
+if (localStorage.getItem('ui') === 'classic') uiClassic.click();
+
+// Init map themes dropdown
 Object.entries(THEMES).forEach(([k, t]) => {
   const opt = document.createElement('option');
   opt.value = k;
@@ -372,7 +455,7 @@ searchEl.oninput = () => {
   clearTimeout(searchTimer);
   const q = searchEl.value.trim();
   if (q.length < 2) { resultsEl.classList.remove('open'); return; }
-  searchTimer = setTimeout(() => doSearch(q), 250);
+  searchTimer = setTimeout(() => doSearch(q), 300);
 };
 searchEl.onfocus = () => { if (resultsEl.children.length) resultsEl.classList.add('open'); };
 document.onclick = e => { if (!e.target.closest('.search-box')) resultsEl.classList.remove('open'); };
@@ -403,8 +486,8 @@ function selectPlace(p) {
   resultsEl.classList.remove('open');
 }
 
-function status(msg, err) {
-  statusEl.textContent = msg;
+function status(msg, err, loading) {
+  statusEl.innerHTML = (loading ? '<span class="spinner"></span>' : '') + msg;
   statusEl.className = 'status' + (err ? ' err' : '');
 }
 
@@ -415,26 +498,45 @@ function getSize() {
   return { w, h, label: s, orient: o };
 }
 
+async function fetchWithRetry(url, options, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok) return res;
+      if (i < retries) {
+        status(`Retrying... (${i + 1}/${retries})`, false, true);
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    } catch (e) {
+      if (i === retries) throw e;
+      status(`Connection error, retrying... (${i + 1}/${retries})`, false, true);
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+  throw new Error('Failed after retries');
+}
+
 async function fetchData(areaId, lat, lon, radius) {
   const types = ROAD_TYPES.join('|');
   const useArea = areaId !== null;
   
   const streetQ = useArea
-    ? `[out:json][timeout:120];area(${areaId})->.a;way(area.a)["highway"~"^(${types})$"];out geom;`
-    : `[out:json][timeout:120];way["highway"~"^(${types})$"](around:${radius},${lat},${lon});out geom;`;
+    ? `[out:json][timeout:180];area(${areaId})->.a;way(area.a)["highway"~"^(${types})$"];out geom;`
+    : `[out:json][timeout:180];way["highway"~"^(${types})$"](around:${radius},${lat},${lon});out geom;`;
   
-  const streetRes = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: streetQ });
-  if (!streetRes.ok) throw new Error('Street fetch failed');
+  status('Fetching street data...', false, true);
+  const streetRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: streetQ });
   const streets = await streetRes.json();
   
   let water = { elements: [] };
   if (waterEl.checked) {
+    status('Fetching water bodies...', false, true);
     const waterQ = useArea
-      ? `[out:json][timeout:60];area(${areaId})->.a;(way(area.a)["natural"="water"];way(area.a)["waterway"~"river|canal"];);out geom;`
-      : `[out:json][timeout:60];(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal"](around:${radius},${lat},${lon}););out geom;`;
+      ? `[out:json][timeout:90];area(${areaId})->.a;(way(area.a)["natural"="water"];way(area.a)["waterway"~"river|canal|stream"];relation(area.a)["natural"="water"];);out geom;`
+      : `[out:json][timeout:90];(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream"](around:${radius},${lat},${lon}););out geom;`;
     try {
-      const waterRes = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: waterQ });
-      if (waterRes.ok) water = await waterRes.json();
+      const waterRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: waterQ });
+      water = await waterRes.json();
     } catch (e) { console.warn('Water fetch failed', e); }
   }
   
@@ -603,11 +705,11 @@ genBtn.onclick = async () => {
     const useArea = place.osm_type === 'relation';
     const areaId = useArea ? 3600000000 + parseInt(place.osm_id) : null;
     
-    status(useArea ? 'Fetching city boundary data...' : `Fetching ${Math.round(radiusEl.value/1609)}mi radius...`);
+    status(useArea ? 'Loading city boundary...' : `Loading ${Math.round(radiusEl.value/1609)}mi radius...`, false, true);
     
     const { streets, water } = await fetchData(areaId, lat, lon, parseInt(radiusEl.value));
     
-    if (!streets.elements?.length) throw new Error('No street data found');
+    if (!streets.elements?.length) throw new Error('No street data found. Try a different city or increase radius.');
     
     const bounds = calcBounds(streets, water);
     
@@ -617,10 +719,10 @@ genBtn.onclick = async () => {
       lat, lon, streets, water, bounds
     };
     
-    status('Rendering...');
+    status('Rendering...', false, true);
     render(canvas, themeEl.value, true);
     
-    status(`${streets.elements.length} roads` + (water.elements?.length ? `, ${water.elements.length} water features` : ''));
+    status(`${streets.elements.length.toLocaleString()} roads` + (water.elements?.length ? `, ${water.elements.length.toLocaleString()} water features` : ''));
     dlBtn.disabled = false;
     compareBtn.disabled = false;
   } catch (e) {
@@ -633,6 +735,7 @@ genBtn.onclick = async () => {
 
 dlBtn.onclick = () => {
   if (!data) return;
+  status('Rendering full resolution...', false, true);
   render(offscreen, themeEl.value, false);
   const a = document.createElement('a');
   const { label, orient } = getSize();
@@ -652,7 +755,7 @@ compareBtn.onclick = () => {
     card.className = 'theme-card';
     
     const cvs = document.createElement('canvas');
-    render(cvs, key, true, 0.18);
+    render(cvs, key, true, 0.16);
     
     card.innerHTML = `<div class="theme-card-info">
       <div><div class="theme-card-name">${theme.name}</div><div class="theme-card-desc">${theme.desc}</div></div>
@@ -660,8 +763,7 @@ compareBtn.onclick = () => {
     </div>`;
     card.prepend(cvs);
     
-    card.querySelector('.theme-card-select').onclick = (e) => {
-      e.stopPropagation();
+    const selectTheme = () => {
       themeEl.value = key;
       updatePreview();
       render(canvas, key, true);
@@ -669,13 +771,8 @@ compareBtn.onclick = () => {
       status(`Theme: ${theme.name}`);
     };
     
-    card.onclick = () => {
-      themeEl.value = key;
-      updatePreview();
-      render(canvas, key, true);
-      modal.classList.remove('open');
-      status(`Theme: ${theme.name}`);
-    };
+    card.querySelector('.theme-card-select').onclick = (e) => { e.stopPropagation(); selectTheme(); };
+    card.onclick = selectTheme;
     
     themeGrid.appendChild(card);
   });
