@@ -64,9 +64,6 @@
     .results div:hover { background: #252525; }
     .results small { color: #555; font-size: 10px; }
     .selected { color: #6af; font-size: 13px; min-height: 18px; margin: -4px 0 4px; }
-    .row { display: flex; gap: 8px; }
-    .row label { flex: 1; }
-    .row input[type="radio"] { width: auto; margin-right: 4px; }
     .radio-group { display: flex; gap: 12px; margin-top: 4px; }
     .radio-group label { display: flex; align-items: center; font-size: 13px; text-transform: none; color: #ddd; cursor: pointer; }
     .theme-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
@@ -94,12 +91,98 @@
     .btn-dl { background: #2a2a2a; color: #aaa; }
     .btn-dl:hover:not(:disabled) { background: #333; }
     .btn-dl:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-compare { background: #2a2a2a; color: #aaa; }
+    .btn-compare:hover:not(:disabled) { background: #383838; }
+    .btn-compare:disabled { opacity: 0.4; cursor: not-allowed; }
     .status { font-size: 12px; color: #666; min-height: 16px; }
     .status.err { color: #f66; }
     .preview { display: flex; justify-content: center; align-items: flex-start; }
     #preview { max-width: 100%; max-height: 75vh; border: 1px solid #333; background: #000; }
     #offscreen { display: none; }
     .divider { border-top: 1px solid #282828; margin: 4px 0; }
+    
+    /* Compare Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.95);
+      z-index: 100;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .modal.open { display: block; }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1400px;
+      margin: 0 auto 20px;
+    }
+    .modal-header h2 {
+      font-weight: 300;
+      letter-spacing: 2px;
+      font-size: 18px;
+    }
+    .modal-close {
+      background: #333;
+      border: none;
+      color: #fff;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .modal-close:hover { background: #444; }
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .theme-card {
+      background: #1a1a1a;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .theme-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .theme-card canvas {
+      width: 100%;
+      display: block;
+    }
+    .theme-card-info {
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .theme-card-name {
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .theme-card-desc {
+      font-size: 11px;
+      color: #666;
+    }
+    .theme-card-select {
+      background: #4a9eff;
+      border: none;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    .theme-card-select:hover { background: #3a8eef; }
+    
     @media (max-width: 700px) { .app { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -152,6 +235,7 @@
     <div class="divider"></div>
 
     <button class="btn-go" id="generate">Generate Preview</button>
+    <button class="btn-compare" id="compare" disabled>Compare All Themes</button>
     <button class="btn-dl" id="download" disabled>Download PNG</button>
     <div class="status" id="status"></div>
   </div>
@@ -160,6 +244,15 @@
     <canvas id="preview"></canvas>
   </div>
 </div>
+
+<div class="modal" id="modal">
+  <div class="modal-header">
+    <h2>COMPARE THEMES</h2>
+    <button class="modal-close" id="modalClose">×</button>
+  </div>
+  <div class="theme-grid" id="themeGrid"></div>
+</div>
+
 <canvas id="offscreen"></canvas>
 
 <script>
@@ -251,8 +344,9 @@ const $ = id => document.getElementById(id);
 const searchEl = $('search'), resultsEl = $('results'), selectedEl = $('selected');
 const themeEl = $('theme'), previewEl = $('themePreview'), waterEl = $('water');
 const radiusEl = $('radius'), radValEl = $('radVal');
-const genBtn = $('generate'), dlBtn = $('download'), statusEl = $('status');
+const genBtn = $('generate'), dlBtn = $('download'), compareBtn = $('compare'), statusEl = $('status');
 const canvas = $('preview'), offscreen = $('offscreen');
+const modal = $('modal'), modalClose = $('modalClose'), themeGrid = $('themeGrid');
 
 // Init themes
 Object.entries(THEMES).forEach(([k, t]) => {
@@ -267,7 +361,7 @@ function updatePreview() {
   previewEl.style.background = t.bg;
   previewEl.innerHTML = t.roads.map(c => `<span style="background:${c}"></span>`).join('');
 }
-themeEl.onchange = () => { updatePreview(); if (data) render(canvas, true); };
+themeEl.onchange = () => { updatePreview(); if (data) render(canvas, themeEl.value, true); };
 updatePreview();
 
 radiusEl.oninput = () => radValEl.textContent = `${Math.round(radiusEl.value / 1609)} mi`;
@@ -362,27 +456,24 @@ function calcBounds(streets, water) {
   return { minLat: minLat - dLat, maxLat: maxLat + dLat, minLon: minLon - dLon, maxLon: maxLon + dLon };
 }
 
-function render(cvs, isPreview) {
+function render(cvs, themeKey, isPreview, scaleOverride) {
   const { w: fullW, h: fullH, orient } = getSize();
-  const theme = THEMES[themeEl.value];
-  const scale = isPreview ? 0.3 : 1;
+  const theme = THEMES[themeKey];
+  const scale = scaleOverride || (isPreview ? 0.3 : 1);
   const w = Math.round(fullW * scale), h = Math.round(fullH * scale);
   
   cvs.width = w; cvs.height = h;
   const ctx = cvs.getContext('2d');
   
-  // Background
   ctx.fillStyle = theme.bg;
   ctx.fillRect(0, 0, w, h);
   
-  // Map area
   const margin = Math.min(w, h) * 0.05;
   const isLandscape = orient === 'landscape';
   const mapW = w - margin * 2;
   const mapH = isLandscape ? h * 0.68 : h * 0.72;
   const mapTop = margin;
   
-  // Fit bounds to map area
   const b = data.bounds;
   const dataAspect = (b.maxLon - b.minLon) / (b.maxLat - b.minLat);
   const mapAspect = mapW / mapH;
@@ -401,7 +492,7 @@ function render(cvs, isPreview) {
     mapTop + ((adj.maxLat - lat) / (adj.maxLat - adj.minLat)) * mapH
   ];
   
-  // Draw water
+  // Water
   if (waterEl.checked && data.water?.elements) {
     ctx.fillStyle = theme.water;
     ctx.strokeStyle = theme.water;
@@ -418,7 +509,7 @@ function render(cvs, isPreview) {
     });
   }
   
-  // Group and draw roads
+  // Roads
   const groups = { motorway: [], primary: [], secondary: [], tertiary: [], residential: [] };
   (data.streets.elements || []).forEach(el => {
     if (el.type !== 'way' || !el.geometry) return;
@@ -449,7 +540,7 @@ function render(cvs, isPreview) {
     });
   });
   
-  // Gradient fades
+  // Fades
   const fadeH = h * 0.08;
   let grad = ctx.createLinearGradient(0, 0, 0, fadeH);
   grad.addColorStop(0, theme.bg); grad.addColorStop(1, theme.bg + '00');
@@ -465,7 +556,6 @@ function render(cvs, isPreview) {
   const textY = mapTop + mapH + margin * (isLandscape ? 0.6 : 0.8);
   ctx.textAlign = 'center';
   
-  // City name with spacing
   const citySize = Math.round((isLandscape ? 40 : 48) * scale);
   ctx.font = `300 ${citySize}px system-ui, sans-serif`;
   ctx.fillStyle = theme.text;
@@ -480,7 +570,6 @@ function render(cvs, isPreview) {
     x += ctx.measureText(c).width + spacing;
   }
   
-  // Line
   const lineY = textY + citySize * 0.35;
   ctx.strokeStyle = theme.text + '40';
   ctx.lineWidth = scale;
@@ -489,13 +578,11 @@ function render(cvs, isPreview) {
   ctx.lineTo(w/2 + 30*scale, lineY);
   ctx.stroke();
   
-  // Country
   const countrySize = Math.round(18 * scale);
   ctx.font = `400 ${countrySize}px system-ui, sans-serif`;
   ctx.fillStyle = theme.text + 'cc';
   ctx.fillText(data.country.toUpperCase(), w/2, lineY + countrySize * 1.4);
   
-  // Coords
   const coordSize = Math.round(12 * scale);
   ctx.font = `300 ${coordSize}px system-ui, sans-serif`;
   ctx.fillStyle = theme.text + '88';
@@ -509,6 +596,7 @@ genBtn.onclick = async () => {
   
   genBtn.disabled = true;
   dlBtn.disabled = true;
+  compareBtn.disabled = true;
   
   try {
     const lat = parseFloat(place.lat), lon = parseFloat(place.lon);
@@ -530,10 +618,11 @@ genBtn.onclick = async () => {
     };
     
     status('Rendering...');
-    render(canvas, true);
+    render(canvas, themeEl.value, true);
     
     status(`${streets.elements.length} roads` + (water.elements?.length ? `, ${water.elements.length} water features` : ''));
     dlBtn.disabled = false;
+    compareBtn.disabled = false;
   } catch (e) {
     status(e.message, true);
     console.error(e);
@@ -544,7 +633,7 @@ genBtn.onclick = async () => {
 
 dlBtn.onclick = () => {
   if (!data) return;
-  render(offscreen, false);
+  render(offscreen, themeEl.value, false);
   const a = document.createElement('a');
   const { label, orient } = getSize();
   a.download = `${data.city.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${label}-${orient}-${themeEl.value}.png`;
@@ -553,11 +642,56 @@ dlBtn.onclick = () => {
   status('Downloaded!');
 };
 
+// Compare modal
+compareBtn.onclick = () => {
+  if (!data) return;
+  themeGrid.innerHTML = '';
+  
+  Object.entries(THEMES).forEach(([key, theme]) => {
+    const card = document.createElement('div');
+    card.className = 'theme-card';
+    
+    const cvs = document.createElement('canvas');
+    render(cvs, key, true, 0.18);
+    
+    card.innerHTML = `<div class="theme-card-info">
+      <div><div class="theme-card-name">${theme.name}</div><div class="theme-card-desc">${theme.desc}</div></div>
+      <button class="theme-card-select">Select</button>
+    </div>`;
+    card.prepend(cvs);
+    
+    card.querySelector('.theme-card-select').onclick = (e) => {
+      e.stopPropagation();
+      themeEl.value = key;
+      updatePreview();
+      render(canvas, key, true);
+      modal.classList.remove('open');
+      status(`Theme: ${theme.name}`);
+    };
+    
+    card.onclick = () => {
+      themeEl.value = key;
+      updatePreview();
+      render(canvas, key, true);
+      modal.classList.remove('open');
+      status(`Theme: ${theme.name}`);
+    };
+    
+    themeGrid.appendChild(card);
+  });
+  
+  modal.classList.add('open');
+};
+
+modalClose.onclick = () => modal.classList.remove('open');
+modal.onclick = e => { if (e.target === modal) modal.classList.remove('open'); };
+document.onkeydown = e => { if (e.key === 'Escape') modal.classList.remove('open'); };
+
 // Re-render on option changes
 document.querySelectorAll('[name="size"], [name="orient"]').forEach(el => {
-  el.onchange = () => { if (data) render(canvas, true); };
+  el.onchange = () => { if (data) render(canvas, themeEl.value, true); };
 });
-waterEl.onchange = () => { if (data) render(canvas, true); };
+waterEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
 </script>
 </body>
 </html>
