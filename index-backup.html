@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MapToPoster</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    :root {
+      --bg: #111;
+      --bg2: #1a1a1a;
+      --bg3: #252525;
+      --border: #333;
+      --text: #ddd;
+      --text2: #888;
+      --text3: #555;
+      --accent: #4a9eff;
+    }
+    
+    [data-ui="classic"] {
+      --bg: #e8e4dc;
+      --bg2: #f5f2eb;
+      --bg3: #fff;
+      --border: #c9c4b8;
+      --text: #2c2416;
+      --text2: #5a5347;
+      --text3: #8a8478;
+      --accent: #1a6b4a;
+    }
+    
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+      overflow: hidden;
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      height: 100vh;
+    }
+    
+    /* Left Sidebar */
+    .sidebar {
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sidebar-header h1 {
+      font-weight: 200;
+      letter-spacing: 4px;
+      font-size: 16px;
+    }
+    .ui-toggle {
+      display: flex;
+      gap: 2px;
+      background: var(--bg3);
+      padding: 3px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    .ui-toggle button {
+      padding: 5px 10px;
+      border: none;
+      background: transparent;
+      color: var(--text2);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      transition: all 0.2s;
+    }
+    .ui-toggle button.active { background: var(--accent); color: #fff; }
+    .ui-toggle button:hover:not(.active) { background: var(--bg); }
+    
+    .city-browser {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 12px;
+      gap: 10px;
+    }
+    .city-search {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .city-search input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .city-search input:focus { outline: none; border-color: var(--accent); }
+    .city-filters {
+      display: flex;
+      gap: 6px;
+    }
+    .city-filters select {
+      flex: 1;
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .city-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .city-item {
+      padding: 10px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .city-item:hover { background: var(--bg3); }
+    .city-item.active { background: var(--accent); color: #fff; }
+    .city-item .city-name { font-size: 13px; font-weight: 500; }
+    .city-item .city-country { font-size: 11px; color: var(--text3); }
+    .city-item.active .city-country { color: rgba(255,255,255,0.7); }
+    .city-count { font-size: 11px; color: var(--text3); padding: 4px 0; }
+    
+    /* Main Content */
+    .main {
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      gap: 16px;
+      overflow: hidden;
+    }
+    
+    /* Preview Area */
+    .preview-area {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: var(--bg2);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+      min-height: 0;
+    }
+    #preview {
+      max-width: 100%;
+      max-height: 100%;
+      cursor: grab;
+    }
+    #preview:active { cursor: grabbing; }
+    
+    .zoom-controls {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg2);
+      padding: 6px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    .zoom-controls.visible { display: flex; }
+    .zoom-controls button {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .zoom-controls button:hover { background: var(--bg); }
+    .zoom-controls span { font-size: 11px; color: var(--text2); min-width: 40px; text-align: center; }
+    
+    /* Options Panel */
+    .options-panel {
+      background: var(--bg2);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 16px;
+    }
+    .options-row {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .option-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .option-group label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text3);
+    }
+    .option-group select, .option-group input[type="text"] {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      border-radius: 6px;
+      font-size: 13px;
+      min-width: 140px;
+    }
+    .option-group select:focus, .option-group input:focus { outline: none; border-color: var(--accent); }
+    
+    .status { font-size: 13px; color: var(--text2); min-height: 20px; padding: 8px 0; }
+    .status.loading { color: var(--accent); font-weight: 500; }
+    .status.err { color: #e55; }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg2);
+      color: var(--text);
+      border-radius: 4px;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+    .search-box { position: relative; }
+    .results {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+      z-index: 10;
+    }
+    .results.open { display: block; }
+    .results div {
+      padding: 10px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+    .results div:hover { background: var(--bg3); }
+    .results small { color: var(--text3); font-size: 10px; }
+    .selected { color: var(--accent); font-size: 13px; min-height: 18px; margin: -4px 0 4px; }
+    
+    /* Animated Pill Toggle - 50/50 split */
+    .pill-toggle {
+      display: flex;
+      background: var(--bg3);
+      border-radius: 10px;
+      padding: 4px;
+      position: relative;
+      border: 1px solid var(--border);
+      margin-top: 6px;
+    }
+    .pill-toggle input { display: none; }
+    .pill-toggle label {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text2);
+      transition: color 0.3s;
+      position: relative;
+      z-index: 1;
+      text-transform: none;
+      letter-spacing: normal;
+    }
+    .pill-toggle label svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .pill-toggle input:checked + label { color: #fff; }
+    .pill-slider {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: calc(50% - 4px);
+      height: calc(100% - 8px);
+      background: var(--accent);
+      border-radius: 8px;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 0;
+    }
+    .pill-toggle.right .pill-slider { transform: translateX(100%); }
+    
+    .theme-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+    .theme-preview {
+      width: 60px;
+      height: 36px;
+      border-radius: 4px;
+      display: flex;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .theme-preview span { flex: 1; }
+    button {
+      padding: 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+    }
+    .btn-go { background: var(--accent); color: #fff; }
+    .btn-go:hover { filter: brightness(1.1); }
+    .btn-go:disabled { background: var(--bg3); color: var(--text3); cursor: not-allowed; filter: none; }
+    .btn-secondary { background: var(--bg2); color: var(--text2); border: 1px solid var(--border); }
+    .btn-secondary:hover:not(:disabled) { background: var(--bg3); }
+    .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .status { font-size: 13px; color: var(--text2); min-height: 20px; padding: 8px 0; }
+    .status.loading { color: var(--accent); font-weight: 500; }
+    .status.err { color: #e55; }
+    .preview-area { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    #preview { max-width: 100%; max-height: 70vh; border: 1px solid var(--border); background: #000; cursor: grab; }
+    #preview:active { cursor: grabbing; }
+    #offscreen { display: none; }
+    .divider { border-top: 1px solid var(--border); margin: 4px 0; }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .small-input { padding: 8px; font-size: 13px; }
+    .hint { font-size: 10px; color: var(--text3); margin-top: -6px; }
+    .checkbox-row {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      font-size: 13px; color: var(--text);
+    }
+    .checkbox-row input { width: auto; margin: 0; }
+    .collapsible { 
+      background: var(--bg2); 
+      border: 1px solid var(--border); 
+      border-radius: 4px; 
+      overflow: hidden;
+    }
+    .collapsible-header {
+      padding: 10px 12px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text2);
+    }
+    .collapsible-header:hover { background: var(--bg3); }
+    .collapsible-content { padding: 12px; display: none; border-top: 1px solid var(--border); }
+    .collapsible.open .collapsible-content { display: block; }
+    .collapsible-header::after { content: '▼'; font-size: 10px; transition: transform 0.2s; }
+    .collapsible.open .collapsible-header::after { transform: rotate(180deg); }
+    
+    /* Recent cities */
+    .recent { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .recent-chip {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      cursor: pointer;
+      color: var(--text2);
+    }
+    .recent-chip:hover { border-color: var(--accent); color: var(--accent); }
+    
+    /* Progress bar - prominent */
+    .progress { width: 100%; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin-top: 8px; display: none; }
+    .progress.active { display: block; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), #6ab0ff); width: 0%; transition: width 0.3s; animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    
+    /* Zoom controls */
+    .zoom-controls { display: flex; gap: 8px; align-items: center; }
+    .zoom-controls button { padding: 6px 12px; font-size: 16px; }
+    .zoom-controls span { font-size: 12px; color: var(--text2); min-width: 50px; text-align: center; }
+    
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 100;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .modal.open { display: block; }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1400px;
+      margin: 0 auto 20px;
+    }
+    .modal-header h2 { font-weight: 300; letter-spacing: 2px; font-size: 18px; color: #fff; }
+    .modal-close {
+      background: #333;
+      border: none;
+      color: #fff;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .modal-close:hover { background: #444; }
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .theme-card {
+      background: #1a1a1a;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .theme-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+    .theme-card canvas { width: 100%; display: block; }
+    .theme-card-info { padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; }
+    .theme-card-name { font-size: 13px; font-weight: 500; color: #fff; }
+    .theme-card-desc { font-size: 10px; color: #666; }
+    .theme-card-select {
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 10px;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    
+    /* Batch modal */
+    .batch-input { min-height: 150px; font-family: monospace; font-size: 12px; resize: vertical; }
+    .batch-status { margin-top: 12px; }
+    .batch-progress { margin: 8px 0; }
+    .batch-log { font-size: 11px; color: var(--text2); max-height: 100px; overflow-y: auto; font-family: monospace; }
+    
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--text3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    @media (max-width: 700px) { .app { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body data-ui="dark">
+<div class="app">
+  <!-- Left Sidebar: City Browser -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>MAPTOPOSTER</h1>
+      <div class="ui-toggle">
+        <button id="uiClassic">Classic</button>
+        <button id="uiDark" class="active">Dark</button>
+      </div>
+    </div>
+    
+    <div class="city-browser">
+      <div class="city-search">
+        <input type="text" id="citySearch" placeholder="Search cities...">
+        <div class="city-filters">
+          <select id="regionFilter">
+            <option value="">All Regions</option>
+            <option value="North America">North America</option>
+            <option value="South America">South America</option>
+            <option value="Europe">Europe</option>
+            <option value="Asia">Asia</option>
+            <option value="Africa">Africa</option>
+            <option value="Oceania">Oceania</option>
+          </select>
+          <select id="sortOrder">
+            <option value="name">A → Z</option>
+            <option value="name-desc">Z → A</option>
+            <option value="country">Country</option>
+          </select>
+        </div>
+      </div>
+      <div class="city-count" id="cityCount">200+ cities</div>
+      <div class="city-list" id="cityList"></div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main">
+    <!-- Preview Area -->
+    <div class="preview-area">
+      <div class="zoom-controls" id="zoomControls">
+        <button id="zoomOut">−</button>
+        <span id="zoomLevel">100%</span>
+        <button id="zoomIn">+</button>
+        <button id="zoomReset">Reset</button>
+      </div>
+      <canvas id="preview"></canvas>
+    </div>
+    
+    <!-- Status & Progress -->
+    <div class="status" id="status">Select a city to get started</div>
+    <div class="progress" id="progress"><div class="progress-bar" id="progressBar"></div></div>
+    
+    <!-- Options Panel -->
+    <div class="options-panel">
+      <div class="options-row">
+        <div class="option-group">
+          <label>Theme</label>
+          <select id="theme"></select>
+        </div>
+        
+        <div class="option-group">
+          <label>Orientation</label>
+          <div class="pill-toggle" id="orientToggle">
+            <div class="pill-slider"></div>
+            <input type="radio" name="orient" id="orientPortrait" value="portrait" checked>
+            <label for="orientPortrait">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="2"/></svg>
+              Portrait
+            </label>
+            <input type="radio" name="orient" id="orientLandscape" value="landscape">
+            <label for="orientLandscape">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/></svg>
+              Landscape
+            </label>
+          </div>
+        </div>
+        
+        <div class="option-group">
+          <label>Size</label>
+          <div class="pill-toggle" id="sizeToggle">
+            <div class="pill-slider"></div>
+            <input type="radio" name="size" id="size5x7" value="5x7" checked>
+            <label for="size5x7">5×7"</label>
+            <input type="radio" name="size" id="size8x10" value="8x10">
+            <label for="size8x10">8×10"</label>
+          </div>
+        </div>
+        
+        <div class="option-group">
+          <label>Display Name</label>
+          <input type="text" id="customCity" placeholder="Auto-detect">
+        </div>
+        
+        <div class="option-group" style="margin-left:auto; display:flex; flex-direction:row; gap:8px; align-items:flex-end;">
+          <button class="btn-go" id="generate">Generate</button>
+          <button class="btn-secondary" id="download" disabled>PNG</button>
+          <button class="btn-secondary" id="downloadSvg" disabled>SVG</button>
+          <button class="btn-secondary" id="compare" disabled>Compare</button>
+          <button class="btn-secondary" id="batch">Batch</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden elements -->
+<input type="text" id="customCountry" style="display:none;">
+<input type="text" id="search" style="display:none;">
+<div id="results" style="display:none;"></div>
+<div id="selected" style="display:none;"></div>
+<div id="recent" style="display:none;"></div>
+<select id="fontStyle" style="display:none;"><option value="system-ui, sans-serif">Clean Sans</option></select>
+<input type="checkbox" id="water" checked style="display:none;">
+<input type="checkbox" id="showCoords" checked style="display:none;">
+<input type="range" id="roadWeight" value="1" style="display:none;">
+<span id="roadWeightVal" style="display:none;"></span>
+<input type="range" id="radius" value="10000" style="display:none;">
+<span id="radVal" style="display:none;"></span>
+<div id="themePreview" style="display:none;"></div>
+<div id="advancedCollapsible" style="display:none;"><div class="collapsible-header"></div></div>
+
+<!-- Compare Modal -->
+<div class="modal" id="modal">
+  <div class="modal-header">
+    <h2>COMPARE THEMES</h2>
+    <button class="modal-close" id="modalClose">×</button>
+  </div>
+  <div class="theme-grid" id="themeGrid"></div>
+</div>
+
+<!-- #2: Batch Modal -->
+<div class="modal" id="batchModal">
+  <div class="modal-header">
+    <h2>BATCH MODE</h2>
+    <button class="modal-close" id="batchClose">×</button>
+  </div>
+  <div style="max-width:600px;margin:0 auto;">
+    <label style="color:#fff;">Enter cities (one per line, format: City, Country)
+      <textarea class="batch-input" id="batchInput" placeholder="New York, USA&#10;London, UK&#10;Tokyo, Japan&#10;Paris, France"></textarea>
+    </label>
+    <div class="row-2" style="margin-top:12px;">
+      <label style="color:#fff;">Theme
+        <select id="batchTheme"></select>
+      </label>
+      <label style="color:#fff;">Size
+        <select id="batchSize">
+          <option value="5x7-portrait">5×7" Portrait</option>
+          <option value="5x7-landscape">5×7" Landscape</option>
+          <option value="8x10-portrait">8×10" Portrait</option>
+          <option value="8x10-landscape">8×10" Landscape</option>
+        </select>
+      </label>
+    </div>
+    <button class="btn-go" id="batchStart" style="margin-top:16px;width:100%;">Start Batch</button>
+    <div class="batch-status" id="batchStatus"></div>
+    <div class="progress batch-progress" id="batchProgress"><div class="progress-bar" id="batchProgressBar"></div></div>
+    <div class="batch-log" id="batchLog"></div>
+  </div>
+</div>
+
+<canvas id="offscreen"></canvas>
+
+<script src="cities.js"></script>
+<script>
+const THEMES = {
+  noir: { name: "Noir", desc: "Classic dark", bg: "#0a0a0a", text: "#fff", water: "#151520", roads: ["#fff","#ccc","#999","#666","#444"] },
+  parchment: { name: "Ancient Parchment", desc: "Fantasy map style", bg: "#d4c4a8", text: "#2a1f14", water: "#8b9a7d", roads: ["#2a1f14","#3d2e1f","#5a4632","#7a6652","#9a8672"] },
+  hologram: { name: "Hologram", desc: "Sci-fi futuristic", bg: "#050510", text: "#0ff", water: "#001a1a", roads: ["#0ff","#0af","#08f","#06a","#035"] },
+  neon: { name: "Neon City", desc: "Cyberpunk nights", bg: "#0a0012", text: "#f0f", water: "#0f0a1a", roads: ["#0ff","#f0f","#ff0","#f60","#609"] },
+  comic: { name: "Comic Pop", desc: "Bold cartoon style", bg: "#fff", text: "#000", water: "#7ec8e3", roads: ["#000","#e63946","#f4a261","#2a9d8f","#264653"] },
+  candy: { name: "Candy", desc: "Bright & playful", bg: "#fff5f5", text: "#d63384", water: "#a8e6cf", roads: ["#d63384","#ff6b6b","#feca57","#48dbfb","#a55eea"] },
+  midnight: { name: "Midnight Blue", desc: "Deep ocean tones", bg: "#0d1b2a", text: "#e0e1dd", water: "#1b263b", roads: ["#ffd700","#e0e1dd","#778da9","#415a77","#1b263b"] },
+  blueprint: { name: "Blueprint", desc: "Technical drafting", bg: "#0a2463", text: "#fff", water: "#061539", roads: ["#fff","#d4e4f7","#9db4ce","#6884a5","#3e5c76"] },
+  sepia: { name: "Vintage Sepia", desc: "Old photograph", bg: "#f5f0e6", text: "#2c2c2c", water: "#d4c4a8", roads: ["#2c2c2c","#4a4a4a","#6a6a6a","#9a9a9a","#c0c0c0"] },
+  forest: { name: "Enchanted Forest", desc: "Deep woodland", bg: "#0f1a0f", text: "#98d982", water: "#0a120a", roads: ["#98d982","#6ab04c","#4a8030","#2a5010","#1a3008"] },
+  sunset: { name: "Sunset", desc: "Warm golden hour", bg: "#1a0a0a", text: "#ffd700", water: "#2d1f1f", roads: ["#ff6b35","#f7c59f","#efa48b","#d7816a","#bd4f6c"] },
+  ice: { name: "Frozen", desc: "Arctic cold", bg: "#e8f4f8", text: "#1a3a4a", water: "#a8d4e6", roads: ["#1a3a4a","#2a5a7a","#4a8aaa","#7abacc","#aadaee"] }
+};
+
+const ROAD_TYPES = ['motorway','motorway_link','trunk','trunk_link','primary','primary_link','secondary','secondary_link','tertiary','tertiary_link','residential','living_street','unclassified'];
+const SIZES = {
+  '5x7': { portrait: [1500, 2100], landscape: [2100, 1500] },
+  '8x10': { portrait: [2400, 3000], landscape: [3000, 2400] }
+};
+const BASE_WIDTHS = [2.5, 2, 1.5, 1, 0.5];
+
+let place = null, data = null, recentCities = [], zoom = 1, panX = 0, panY = 0;
+
+const $ = id => document.getElementById(id);
+const searchEl = $('search'), resultsEl = $('results'), selectedEl = $('selected'), recentEl = $('recent');
+const customCityEl = $('customCity'), customCountryEl = $('customCountry');
+const themeEl = $('theme'), previewEl = $('themePreview'), waterEl = $('water'), showCoordsEl = $('showCoords');
+const fontStyleEl = $('fontStyle'), roadWeightEl = $('roadWeight'), roadWeightValEl = $('roadWeightVal');
+const radiusEl = $('radius'), radValEl = $('radVal');
+const genBtn = $('generate'), dlBtn = $('download'), dlSvgBtn = $('downloadSvg'), compareBtn = $('compare'), batchBtn = $('batch');
+const statusEl = $('status'), progressEl = $('progress'), progressBar = $('progressBar');
+const canvas = $('preview'), offscreen = $('offscreen');
+const modal = $('modal'), modalClose = $('modalClose'), themeGrid = $('themeGrid');
+const batchModal = $('batchModal'), batchClose = $('batchClose'), batchInput = $('batchInput');
+const batchTheme = $('batchTheme'), batchSize = $('batchSize'), batchStart = $('batchStart');
+const batchStatus = $('batchStatus'), batchProgress = $('batchProgress'), batchProgressBar = $('batchProgressBar'), batchLog = $('batchLog');
+const uiClassic = $('uiClassic'), uiDark = $('uiDark');
+const zoomControls = $('zoomControls'), zoomIn = $('zoomIn'), zoomOut = $('zoomOut'), zoomReset = $('zoomReset'), zoomLevel = $('zoomLevel');
+const advancedCollapsible = $('advancedCollapsible');
+const orientToggle = $('orientToggle'), sizeToggle = $('sizeToggle');
+
+// City Browser Elements
+const citySearchEl = $('citySearch'), regionFilter = $('regionFilter'), sortOrder = $('sortOrder');
+const cityListEl = $('cityList'), cityCountEl = $('cityCount');
+
+// Region mapping for cities
+const REGIONS = {
+  'North America': ['USA', 'United States', 'Canada', 'Mexico'],
+  'South America': ['Brazil', 'Argentina', 'Colombia', 'Chile', 'Peru', 'Venezuela', 'Ecuador', 'Uruguay'],
+  'Europe': ['UK', 'United Kingdom', 'France', 'Germany', 'Italy', 'Spain', 'Netherlands', 'Belgium', 'Switzerland', 'Austria', 'Portugal', 'Sweden', 'Norway', 'Denmark', 'Finland', 'Poland', 'Czech Republic', 'Greece', 'Ireland', 'Hungary', 'Romania'],
+  'Asia': ['Japan', 'China', 'India', 'South Korea', 'Thailand', 'Vietnam', 'Singapore', 'Malaysia', 'Indonesia', 'Philippines', 'Taiwan', 'Hong Kong', 'UAE', 'Saudi Arabia', 'Israel', 'Turkey', 'Qatar', 'Pakistan', 'Bangladesh'],
+  'Africa': ['South Africa', 'Egypt', 'Nigeria', 'Kenya', 'Morocco', 'Ethiopia', 'Ghana', 'Tanzania'],
+  'Oceania': ['Australia', 'New Zealand']
+};
+
+function getRegion(country) {
+  for (const [region, countries] of Object.entries(REGIONS)) {
+    if (countries.some(c => country.includes(c) || c.includes(country))) return region;
+  }
+  return 'Other';
+}
+
+let currentCity = null;
+
+function renderCityList() {
+  if (!CITIES) return;
+  
+  const searchTerm = citySearchEl.value.toLowerCase();
+  const region = regionFilter.value;
+  const sort = sortOrder.value;
+  
+  // Convert CITIES object to array
+  let cities = Object.values(CITIES);
+  
+  // Filter by search
+  if (searchTerm) {
+    cities = cities.filter(c => 
+      c.name.toLowerCase().includes(searchTerm) || 
+      c.country.toLowerCase().includes(searchTerm)
+    );
+  }
+  
+  // Filter by region
+  if (region) {
+    cities = cities.filter(c => getRegion(c.country) === region);
+  }
+  
+  // Sort
+  if (sort === 'name') {
+    cities.sort((a, b) => a.name.localeCompare(b.name));
+  } else if (sort === 'name-desc') {
+    cities.sort((a, b) => b.name.localeCompare(a.name));
+  } else if (sort === 'country') {
+    cities.sort((a, b) => a.country.localeCompare(b.country) || a.name.localeCompare(b.name));
+  }
+  
+  cityCountEl.textContent = `${cities.length} cities`;
+  
+  cityListEl.innerHTML = cities.map(c => `
+    <div class="city-item" data-key="${c.name.toLowerCase().replace(/\s+/g, '-')}">
+      <div>
+        <div class="city-name">${c.name}</div>
+        <div class="city-country">${c.country}</div>
+      </div>
+    </div>
+  `).join('');
+  
+  // Add click handlers
+  cityListEl.querySelectorAll('.city-item').forEach(item => {
+    item.onclick = () => selectCity(item.dataset.key);
+  });
+  
+  // Highlight current city
+  if (currentCity) {
+    const active = cityListEl.querySelector(`[data-key="${currentCity}"]`);
+    if (active) active.classList.add('active');
+  }
+}
+
+function selectCity(key) {
+  const city = CITIES[key];
+  if (!city) return;
+  
+  currentCity = key;
+  place = {
+    lat: city.lat,
+    lon: city.lon,
+    osm_type: 'relation',
+    osm_id: city.osm_id,
+    name: city.name,
+    address: { city: city.name, country: city.country }
+  };
+  
+  // Update UI
+  selectedEl.textContent = `${city.name}, ${city.country}`;
+  selectedEl.dataset.city = city.name;
+  selectedEl.dataset.country = city.country;
+  
+  // Highlight in list
+  cityListEl.querySelectorAll('.city-item').forEach(el => el.classList.remove('active'));
+  const active = cityListEl.querySelector(`[data-key="${key}"]`);
+  if (active) active.classList.add('active');
+  
+  // Auto-generate
+  genBtn.click();
+}
+
+// City browser event listeners
+citySearchEl.oninput = renderCityList;
+regionFilter.onchange = renderCityList;
+sortOrder.onchange = renderCityList;
+
+// Simple 50-50 Pill Toggle
+function initPillToggle(toggle) {
+  if (!toggle) return;
+  const inputs = toggle.querySelectorAll('input');
+  
+  function updateSlider() {
+    const secondInput = inputs[1];
+    toggle.classList.toggle('right', secondInput.checked);
+  }
+  
+  updateSlider();
+  inputs.forEach(input => {
+    input.addEventListener('change', () => {
+      updateSlider();
+      if (data) render(canvas, themeEl.value, true);
+    });
+  });
+}
+initPillToggle(orientToggle);
+initPillToggle(sizeToggle);
+
+// Collapsible (if exists)
+if (advancedCollapsible && advancedCollapsible.querySelector('.collapsible-header')) {
+  advancedCollapsible.querySelector('.collapsible-header').onclick = () => advancedCollapsible.classList.toggle('open');
+}
+
+// UI theme toggle
+uiClassic.onclick = () => { document.body.dataset.ui = 'classic'; uiClassic.classList.add('active'); uiDark.classList.remove('active'); localStorage.setItem('ui', 'classic'); };
+uiDark.onclick = () => { document.body.dataset.ui = 'dark'; uiDark.classList.add('active'); uiClassic.classList.remove('active'); localStorage.setItem('ui', 'dark'); };
+if (localStorage.getItem('ui') === 'classic') uiClassic.click();
+
+// Init theme dropdowns
+Object.entries(THEMES).forEach(([k, t]) => {
+  const opt = document.createElement('option');
+  opt.value = k; opt.textContent = `${t.name} — ${t.desc}`;
+  themeEl.appendChild(opt);
+  batchTheme.appendChild(opt.cloneNode(true));
+});
+
+function updateThemePreview() {
+  const t = THEMES[themeEl.value];
+  previewEl.style.background = t.bg;
+  previewEl.innerHTML = t.roads.map(c => `<span style="background:${c}"></span>`).join('');
+}
+themeEl.onchange = () => { updateThemePreview(); if (data) render(canvas, themeEl.value, true); };
+updateThemePreview();
+
+// Sliders
+radiusEl.oninput = () => radValEl.textContent = `${Math.round(radiusEl.value / 1609)} mi`;
+roadWeightEl.oninput = () => { roadWeightValEl.textContent = `${roadWeightEl.value}×`; if (data) render(canvas, themeEl.value, true); };
+
+// #3: Recent cities
+function loadRecent() {
+  try { recentCities = JSON.parse(localStorage.getItem('recentCities') || '[]'); } catch { recentCities = []; }
+  renderRecent();
+}
+function saveRecent(city, country, placeData) {
+  const entry = { city, country, place: placeData };
+  recentCities = recentCities.filter(r => r.city !== city || r.country !== country);
+  recentCities.unshift(entry);
+  recentCities = recentCities.slice(0, 10);
+  localStorage.setItem('recentCities', JSON.stringify(recentCities));
+  renderRecent();
+}
+function renderRecent() {
+  if (!recentCities.length) { recentEl.style.display = 'none'; return; }
+  recentEl.style.display = 'flex';
+  recentEl.innerHTML = recentCities.map((r, i) => `<span class="recent-chip" data-i="${i}">${r.city}</span>`).join('');
+  recentEl.querySelectorAll('.recent-chip').forEach(chip => {
+    chip.onclick = () => {
+      const r = recentCities[chip.dataset.i];
+      place = r.place;
+      selectedEl.textContent = r.city + (r.country ? `, ${r.country}` : '');
+      selectedEl.dataset.city = r.city;
+      selectedEl.dataset.country = r.country;
+    };
+  });
+}
+loadRecent();
+
+// Search
+let searchTimer;
+searchEl.oninput = () => {
+  clearTimeout(searchTimer);
+  const q = searchEl.value.trim();
+  if (q.length < 2) { resultsEl.classList.remove('open'); return; }
+  searchTimer = setTimeout(() => doSearch(q), 300);
+};
+searchEl.onfocus = () => { if (resultsEl.children.length) resultsEl.classList.add('open'); };
+document.onclick = e => { if (!e.target.closest('.search-box')) resultsEl.classList.remove('open'); };
+
+async function doSearch(q) {
+  // First, search local database (instant, no network)
+  const localResults = searchCities(q);
+  
+  if (localResults.length > 0) {
+    resultsEl.innerHTML = localResults.map((city, i) => 
+      `<div data-i="${i}" data-local="true">${city.name}, ${city.country}<br><small>⚡ INSTANT</small></div>`
+    ).join('');
+    resultsEl.classList.add('open');
+    resultsEl.querySelectorAll('div').forEach((el, i) => { 
+      el.onclick = () => selectLocalCity(localResults[i]); 
+    });
+    return;
+  }
+  
+  // Fallback to Photon API for cities not in database
+  try {
+    const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=10`);
+    const data = await r.json();
+    const list = data.features || [];
+    
+    // Filter for cities/towns/villages
+    const filtered = list.filter(f => {
+      const props = f.properties || {};
+      const type = props.type?.toLowerCase() || '';
+      // Include places that are cities, towns, villages, etc
+      return ['city', 'town', 'village', 'municipality', 'hamlet', 'suburb', 'district', 'borough', 'locality'].includes(type);
+    });
+    
+    resultsEl.innerHTML = filtered.map((f, i) => {
+      const props = f.properties || {};
+      const name = props.name || '';
+      const city = props.city || props.name || '';
+      const state = props.state || '';
+      const country = props.country || '';
+      const parts = [name, state, country].filter(Boolean);
+      return `<div data-i="${i}">${parts.join(', ')}<br><small>${(props.type || '').toUpperCase()}</small></div>`;
+    }).join('');
+    resultsEl.classList.toggle('open', filtered.length > 0);
+    resultsEl.querySelectorAll('div').forEach((el, i) => { el.onclick = () => selectPhotonPlace(filtered[i]); });
+  } catch (e) { console.error(e); }
+}
+
+function selectLocalCity(city) {
+  // City from local database - already has osm_id for boundary detection
+  place = {
+    lat: city.lat,
+    lon: city.lon,
+    osm_type: 'relation',  // Local DB cities always have relation IDs
+    osm_id: city.osm_id,
+    name: city.name,
+    address: {
+      city: city.name,
+      country: city.country
+    }
+  };
+  
+  selectedEl.textContent = `${city.name}, ${city.country}`;
+  selectedEl.dataset.city = city.name;
+  selectedEl.dataset.country = city.country;
+  searchEl.value = '';
+  resultsEl.innerHTML = '';
+  resultsEl.classList.remove('open');
+}
+
+function selectPhotonPlace(f) {
+  const props = f.properties || {};
+  const coords = f.geometry?.coordinates || [0, 0];
+  
+  // Create a place object compatible with our existing code
+  place = {
+    lat: coords[1],
+    lon: coords[0],
+    osm_type: props.osm_type || 'node',
+    osm_id: props.osm_id || 0,
+    name: props.name || '',
+    address: {
+      city: props.city || props.name || '',
+      town: props.town,
+      village: props.village,
+      country: props.country || '',
+      state: props.state || ''
+    }
+  };
+  
+  const city = props.city || props.name || '';
+  const country = props.country || '';
+  selectedEl.textContent = city + (country ? `, ${country}` : '');
+  selectedEl.dataset.city = city;
+  selectedEl.dataset.country = country;
+  searchEl.value = '';
+  resultsEl.innerHTML = '';
+  resultsEl.classList.remove('open');
+}
+
+function selectPlace(p) {
+  place = p;
+  const addr = p.address || {};
+  const city = addr.city || addr.town || addr.village || addr.municipality || p.name || '';
+  const country = addr.country || '';
+  selectedEl.textContent = city + (country ? `, ${country}` : '');
+  selectedEl.dataset.city = city;
+  selectedEl.dataset.country = country;
+  searchEl.value = '';
+  resultsEl.innerHTML = '';
+  resultsEl.classList.remove('open');
+}
+
+function status(msg, err, loading) {
+  statusEl.innerHTML = (loading ? '<span class="spinner"></span>' : '') + msg;
+  statusEl.className = 'status' + (err ? ' err' : '') + (loading ? ' loading' : '');
+}
+
+function setProgress(pct) {
+  if (pct === null) { progressEl.classList.remove('active'); return; }
+  progressEl.classList.add('active');
+  progressBar.style.width = pct + '%';
+}
+
+function getSize(sizeKey, orientKey) {
+  const s = sizeKey || document.querySelector('[name="size"]:checked').value;
+  const o = orientKey || document.querySelector('[name="orient"]:checked').value;
+  const [w, h] = SIZES[s][o];
+  return { w, h, label: s, orient: o };
+}
+
+async function fetchWithRetry(url, options, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok) return res;
+      if (i < retries) { status(`Retrying... (${i + 1}/${retries})`, false, true); await new Promise(r => setTimeout(r, 2000)); }
+    } catch (e) {
+      if (i === retries) throw e;
+      status(`Connection error, retrying... (${i + 1}/${retries})`, false, true);
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+  throw new Error('Failed after retries');
+}
+
+async function fetchData(areaId, lat, lon, radius, onProgress) {
+  const types = ROAD_TYPES.join('|');
+  const useArea = areaId !== null;
+  
+  onProgress?.(10);
+  const streetQ = useArea
+    ? `[out:json][timeout:180];area(${areaId})->.a;way(area.a)["highway"~"^(${types})$"];out geom;`
+    : `[out:json][timeout:180];way["highway"~"^(${types})$"](around:${radius},${lat},${lon});out geom;`;
+  
+  status('Fetching street data...', false, true);
+  onProgress?.(20);
+  const streetRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: streetQ });
+  onProgress?.(50);
+  const streets = await streetRes.json();
+  onProgress?.(60);
+  
+  let water = { elements: [] };
+  if (waterEl.checked) {
+    status('Fetching water bodies...', false, true);
+    const waterQ = useArea
+      ? `[out:json][timeout:90];area(${areaId})->.a;(way(area.a)["natural"="water"];way(area.a)["waterway"~"river|canal|stream"];relation(area.a)["natural"="water"];);out geom;`
+      : `[out:json][timeout:90];(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream"](around:${radius},${lat},${lon}););out geom;`;
+    try {
+      onProgress?.(70);
+      const waterRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: waterQ });
+      water = await waterRes.json();
+      onProgress?.(85);
+    } catch (e) { console.warn('Water fetch failed', e); }
+  }
+  onProgress?.(90);
+  return { streets, water };
+}
+
+function calcBounds(streets, water) {
+  let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+  const process = els => els.forEach(el => {
+    (el.geometry || []).forEach(p => {
+      minLat = Math.min(minLat, p.lat); maxLat = Math.max(maxLat, p.lat);
+      minLon = Math.min(minLon, p.lon); maxLon = Math.max(maxLon, p.lon);
+    });
+  });
+  process(streets.elements || []);
+  process(water.elements || []);
+  const pad = 0.05;
+  const dLat = (maxLat - minLat) * pad, dLon = (maxLon - minLon) * pad;
+  return { minLat: minLat - dLat, maxLat: maxLat + dLat, minLon: minLon - dLon, maxLon: maxLon + dLon };
+}
+
+function getDisplayNames() {
+  const city = customCityEl.value.trim() || data.city;
+  const country = customCountryEl.value.trim() || data.country;
+  return { city, country };
+}
+
+function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride) {
+  const size = sizeOverride || getSize();
+  const { w: fullW, h: fullH, orient } = size;
+  const theme = THEMES[themeKey];
+  const scale = scaleOverride || (isPreview ? 0.3 : 1);
+  const roadWeight = parseFloat(roadWeightEl.value);
+  const font = fontStyleEl.value;
+  const showCoords = showCoordsEl.checked;
+  const { city, country } = getDisplayNames();
+  
+  const w = Math.round(fullW * scale), h = Math.round(fullH * scale);
+  cvs.width = w; cvs.height = h;
+  const ctx = cvs.getContext('2d');
+  
+  // Apply zoom/pan for preview
+  if (isPreview && (zoom !== 1 || panX !== 0 || panY !== 0)) {
+    ctx.translate(w/2 + panX, h/2 + panY);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-w/2, -h/2);
+  }
+  
+  ctx.fillStyle = theme.bg;
+  ctx.fillRect(-w, -h, w*3, h*3);
+  
+  const margin = Math.min(w, h) * 0.05;
+  const isLandscape = orient === 'landscape';
+  const mapW = w - margin * 2;
+  const mapH = isLandscape ? h * 0.68 : h * 0.72;
+  const mapTop = margin;
+  
+  const b = data.bounds;
+  const dataAspect = (b.maxLon - b.minLon) / (b.maxLat - b.minLat);
+  const mapAspect = mapW / mapH;
+  const adj = { ...b };
+  
+  if (dataAspect > mapAspect) {
+    const latC = (b.minLat + b.maxLat) / 2, range = (b.maxLon - b.minLon) / mapAspect;
+    adj.minLat = latC - range / 2; adj.maxLat = latC + range / 2;
+  } else {
+    const lonC = (b.minLon + b.maxLon) / 2, range = (b.maxLat - b.minLat) * mapAspect;
+    adj.minLon = lonC - range / 2; adj.maxLon = lonC + range / 2;
+  }
+  
+  const proj = (lat, lon) => [
+    margin + ((lon - adj.minLon) / (adj.maxLon - adj.minLon)) * mapW,
+    mapTop + ((adj.maxLat - lat) / (adj.maxLat - adj.minLat)) * mapH
+  ];
+  
+  // Water
+  if (waterEl.checked && data.water?.elements) {
+    ctx.fillStyle = theme.water;
+    ctx.strokeStyle = theme.water;
+    ctx.lineWidth = 1.5 * scale * roadWeight;
+    data.water.elements.forEach(el => {
+      if (!el.geometry) return;
+      ctx.beginPath();
+      el.geometry.forEach((p, i) => { const [x, y] = proj(p.lat, p.lon); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+      const g = el.geometry;
+      (g[0].lat === g[g.length-1].lat && g[0].lon === g[g.length-1].lon) ? ctx.fill() : ctx.stroke();
+    });
+  }
+  
+  // Roads
+  const groups = { motorway: [], primary: [], secondary: [], tertiary: [], residential: [] };
+  (data.streets.elements || []).forEach(el => {
+    if (el.type !== 'way' || !el.geometry) return;
+    const hw = el.tags?.highway?.replace('_link', '') || '';
+    if (hw === 'motorway' || hw === 'trunk') groups.motorway.push(el);
+    else if (hw === 'primary') groups.primary.push(el);
+    else if (hw === 'secondary') groups.secondary.push(el);
+    else if (hw === 'tertiary') groups.tertiary.push(el);
+    else groups.residential.push(el);
+  });
+  
+  const order = ['residential', 'tertiary', 'secondary', 'primary', 'motorway'];
+  order.forEach((grp, i) => {
+    const roads = groups[grp];
+    if (!roads.length) return;
+    ctx.strokeStyle = theme.roads[4 - i];
+    ctx.lineWidth = BASE_WIDTHS[4 - i] * scale * roadWeight * (isPreview ? 1.3 : 1);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    roads.forEach(r => {
+      ctx.beginPath();
+      r.geometry.forEach((p, j) => { const [x, y] = proj(p.lat, p.lon); j === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+      ctx.stroke();
+    });
+  });
+  
+  // Reset transform for UI elements
+  if (isPreview && (zoom !== 1 || panX !== 0 || panY !== 0)) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  
+  // Helper to convert 3-char hex to 6-char hex
+  const expandHex = (hex) => {
+    if (hex.length === 4) return '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
+    return hex;
+  };
+  const bgColor = expandHex(theme.bg);
+  
+  // Fades (only for final render, skip for zoomed preview)
+  if (!isPreview || zoom === 1) {
+    const fadeH = h * 0.08;
+    let grad = ctx.createLinearGradient(0, 0, 0, fadeH);
+    grad.addColorStop(0, bgColor); grad.addColorStop(1, bgColor + '00');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, fadeH);
+    
+    grad = ctx.createLinearGradient(0, mapTop + mapH - fadeH, 0, mapTop + mapH + fadeH * 0.5);
+    grad.addColorStop(0, bgColor + '00'); grad.addColorStop(1, bgColor);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, mapTop + mapH - fadeH, w, fadeH * 1.5);
+  }
+  
+  // Text
+  const textY = mapTop + mapH + margin * (isLandscape ? 0.6 : 0.8);
+  ctx.textAlign = 'center';
+  
+  const citySize = Math.round((isLandscape ? 40 : 48) * scale);
+  ctx.font = `300 ${citySize}px ${font}`;
+  ctx.fillStyle = theme.text;
+  const cityUpper = city.toUpperCase();
+  const spacing = 10 * scale;
+  let tw = 0;
+  for (const c of cityUpper) tw += ctx.measureText(c).width + spacing;
+  tw -= spacing;
+  let x = (w - tw) / 2;
+  for (const c of cityUpper) {
+    ctx.fillText(c, x + ctx.measureText(c).width / 2, textY);
+    x += ctx.measureText(c).width + spacing;
+  }
+  
+  const lineY = textY + citySize * 0.35;
+  ctx.strokeStyle = theme.text + '40';
+  ctx.lineWidth = scale;
+  ctx.beginPath();
+  ctx.moveTo(w/2 - 30*scale, lineY);
+  ctx.lineTo(w/2 + 30*scale, lineY);
+  ctx.stroke();
+  
+  const countrySize = Math.round(18 * scale);
+  ctx.font = `400 ${countrySize}px ${font}`;
+  ctx.fillStyle = theme.text + 'cc';
+  ctx.fillText(country.toUpperCase(), w/2, lineY + countrySize * 1.4);
+  
+  if (showCoords) {
+    const coordSize = Math.round(12 * scale);
+    ctx.font = `300 ${coordSize}px ${font}`;
+    ctx.fillStyle = theme.text + '88';
+    const lat = data.lat, lon = data.lon;
+    const coords = `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(4)}°${lon >= 0 ? 'E' : 'W'}`;
+    ctx.fillText(coords, w/2, lineY + countrySize * 1.4 + coordSize * 1.6);
+  }
+}
+
+// #7: SVG Export
+function renderSvg(themeKey) {
+  const size = getSize();
+  const { w, h, orient } = size;
+  const theme = THEMES[themeKey];
+  const roadWeight = parseFloat(roadWeightEl.value);
+  const font = fontStyleEl.value;
+  const showCoords = showCoordsEl.checked;
+  const { city, country } = getDisplayNames();
+  
+  const margin = Math.min(w, h) * 0.05;
+  const isLandscape = orient === 'landscape';
+  const mapW = w - margin * 2;
+  const mapH = isLandscape ? h * 0.68 : h * 0.72;
+  const mapTop = margin;
+  
+  const b = data.bounds;
+  const dataAspect = (b.maxLon - b.minLon) / (b.maxLat - b.minLat);
+  const mapAspect = mapW / mapH;
+  const adj = { ...b };
+  
+  if (dataAspect > mapAspect) {
+    const latC = (b.minLat + b.maxLat) / 2, range = (b.maxLon - b.minLon) / mapAspect;
+    adj.minLat = latC - range / 2; adj.maxLat = latC + range / 2;
+  } else {
+    const lonC = (b.minLon + b.maxLon) / 2, range = (b.maxLat - b.minLat) * mapAspect;
+    adj.minLon = lonC - range / 2; adj.maxLon = lonC + range / 2;
+  }
+  
+  const proj = (lat, lon) => [
+    margin + ((lon - adj.minLon) / (adj.maxLon - adj.minLon)) * mapW,
+    mapTop + ((adj.maxLat - lat) / (adj.maxLat - adj.minLat)) * mapH
+  ];
+  
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`;
+  svg += `<rect width="${w}" height="${h}" fill="${theme.bg}"/>`;
+  
+  // Water
+  if (waterEl.checked && data.water?.elements) {
+    svg += `<g fill="${theme.water}" stroke="${theme.water}" stroke-width="${1.5 * roadWeight}">`;
+    data.water.elements.forEach(el => {
+      if (!el.geometry) return;
+      const pts = el.geometry.map(p => proj(p.lat, p.lon).join(',')).join(' ');
+      const g = el.geometry;
+      const closed = g[0].lat === g[g.length-1].lat && g[0].lon === g[g.length-1].lon;
+      svg += closed ? `<polygon points="${pts}"/>` : `<polyline points="${pts}" fill="none"/>`;
+    });
+    svg += '</g>';
+  }
+  
+  // Roads
+  const groups = { motorway: [], primary: [], secondary: [], tertiary: [], residential: [] };
+  (data.streets.elements || []).forEach(el => {
+    if (el.type !== 'way' || !el.geometry) return;
+    const hw = el.tags?.highway?.replace('_link', '') || '';
+    if (hw === 'motorway' || hw === 'trunk') groups.motorway.push(el);
+    else if (hw === 'primary') groups.primary.push(el);
+    else if (hw === 'secondary') groups.secondary.push(el);
+    else if (hw === 'tertiary') groups.tertiary.push(el);
+    else groups.residential.push(el);
+  });
+  
+  const order = ['residential', 'tertiary', 'secondary', 'primary', 'motorway'];
+  order.forEach((grp, i) => {
+    const roads = groups[grp];
+    if (!roads.length) return;
+    const strokeW = BASE_WIDTHS[4 - i] * roadWeight;
+    svg += `<g stroke="${theme.roads[4-i]}" stroke-width="${strokeW}" stroke-linecap="round" stroke-linejoin="round" fill="none">`;
+    roads.forEach(r => {
+      const pts = r.geometry.map(p => proj(p.lat, p.lon).join(',')).join(' ');
+      svg += `<polyline points="${pts}"/>`;
+    });
+    svg += '</g>';
+  });
+  
+  // Text
+  const textY = mapTop + mapH + margin * (isLandscape ? 0.6 : 0.8);
+  const citySize = isLandscape ? 40 : 48;
+  const cityUpper = city.toUpperCase();
+  const countrySize = 18;
+  const coordSize = 12;
+  const lineY = textY + citySize * 0.35;
+  
+  svg += `<text x="${w/2}" y="${textY}" text-anchor="middle" fill="${theme.text}" font-family="${font}" font-size="${citySize}" font-weight="300" letter-spacing="10">${cityUpper}</text>`;
+  svg += `<line x1="${w/2 - 30}" y1="${lineY}" x2="${w/2 + 30}" y2="${lineY}" stroke="${theme.text}40" stroke-width="1"/>`;
+  svg += `<text x="${w/2}" y="${lineY + countrySize * 1.4}" text-anchor="middle" fill="${theme.text}cc" font-family="${font}" font-size="${countrySize}" font-weight="400">${country.toUpperCase()}</text>`;
+  
+  if (showCoords) {
+    const lat = data.lat, lon = data.lon;
+    const coords = `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(4)}°${lon >= 0 ? 'E' : 'W'}`;
+    svg += `<text x="${w/2}" y="${lineY + countrySize * 1.4 + coordSize * 1.6}" text-anchor="middle" fill="${theme.text}88" font-family="${font}" font-size="${coordSize}" font-weight="300">${coords}</text>`;
+  }
+  
+  svg += '</svg>';
+  return svg;
+}
+
+// #6: Pan/Zoom
+let isPanning = false, lastX, lastY;
+canvas.onmousedown = e => { if (!data) return; isPanning = true; lastX = e.clientX; lastY = e.clientY; };
+canvas.onmousemove = e => {
+  if (!isPanning) return;
+  panX += (e.clientX - lastX); panY += (e.clientY - lastY);
+  lastX = e.clientX; lastY = e.clientY;
+  render(canvas, themeEl.value, true);
+};
+canvas.onmouseup = () => isPanning = false;
+canvas.onmouseleave = () => isPanning = false;
+canvas.onwheel = e => {
+  if (!data) return;
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  zoom = Math.max(0.5, Math.min(5, zoom * delta));
+  zoomLevel.textContent = Math.round(zoom * 100) + '%';
+  render(canvas, themeEl.value, true);
+};
+zoomIn.onclick = () => { zoom = Math.min(5, zoom * 1.2); zoomLevel.textContent = Math.round(zoom * 100) + '%'; render(canvas, themeEl.value, true); };
+zoomOut.onclick = () => { zoom = Math.max(0.5, zoom / 1.2); zoomLevel.textContent = Math.round(zoom * 100) + '%'; render(canvas, themeEl.value, true); };
+zoomReset.onclick = () => { zoom = 1; panX = 0; panY = 0; zoomLevel.textContent = '100%'; render(canvas, themeEl.value, true); };
+
+// Generate
+genBtn.onclick = async () => {
+  if (!place) { status('Select a city first', true); return; }
+  
+  genBtn.disabled = true;
+  dlBtn.disabled = true;
+  dlSvgBtn.disabled = true;
+  compareBtn.disabled = true;
+  zoom = 1; panX = 0; panY = 0;
+  
+  try {
+    const lat = parseFloat(place.lat), lon = parseFloat(place.lon);
+    const useArea = place.osm_type === 'relation';
+    const areaId = useArea ? 3600000000 + parseInt(place.osm_id) : null;
+    
+    status(useArea ? 'Loading city boundary...' : `Loading ${Math.round(radiusEl.value/1609)}mi radius...`, false, true);
+    
+    const { streets, water } = await fetchData(areaId, lat, lon, parseInt(radiusEl.value), setProgress);
+    
+    if (!streets.elements?.length) throw new Error('No street data found. Try a different city or increase radius.');
+    
+    const bounds = calcBounds(streets, water);
+    const detectedCity = selectedEl.dataset.city;
+    const detectedCountry = selectedEl.dataset.country;
+    
+    data = { city: detectedCity, country: detectedCountry, lat, lon, streets, water, bounds };
+    
+    saveRecent(detectedCity, detectedCountry, place);
+    
+    setProgress(95);
+    status('Rendering...', false, true);
+    render(canvas, themeEl.value, true);
+    
+    setProgress(null);
+    zoomControls.style.display = 'flex';
+    status(`${streets.elements.length.toLocaleString()} roads` + (water.elements?.length ? `, ${water.elements.length.toLocaleString()} water features` : ''));
+    dlBtn.disabled = false;
+    dlSvgBtn.disabled = false;
+    compareBtn.disabled = false;
+  } catch (e) {
+    status(e.message, true);
+    setProgress(null);
+    console.error(e);
+  } finally {
+    genBtn.disabled = false;
+  }
+};
+
+// Downloads
+dlBtn.onclick = () => {
+  if (!data) return;
+  status('Rendering full resolution...', false, true);
+  // Reset zoom for final render
+  const savedZoom = zoom, savedPanX = panX, savedPanY = panY;
+  zoom = 1; panX = 0; panY = 0;
+  render(offscreen, themeEl.value, false);
+  zoom = savedZoom; panX = savedPanX; panY = savedPanY;
+  
+  const a = document.createElement('a');
+  const { label, orient } = getSize();
+  const { city } = getDisplayNames();
+  a.download = `${city.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${label}-${orient}-${themeEl.value}.png`;
+  a.href = offscreen.toDataURL('image/png');
+  a.click();
+  status('Downloaded PNG!');
+};
+
+dlSvgBtn.onclick = () => {
+  if (!data) return;
+  const svg = renderSvg(themeEl.value);
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  const { label, orient } = getSize();
+  const { city } = getDisplayNames();
+  a.download = `${city.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${label}-${orient}-${themeEl.value}.svg`;
+  a.href = URL.createObjectURL(blob);
+  a.click();
+  status('Downloaded SVG!');
+};
+
+// Compare modal
+compareBtn.onclick = () => {
+  console.log('Compare clicked, data:', data);
+  if (!data) { console.log('No data, returning'); return; }
+  themeGrid.innerHTML = '';
+  // Temporarily reset zoom for compare renders
+  const savedZoom = zoom, savedPanX = panX, savedPanY = panY;
+  zoom = 1; panX = 0; panY = 0;
+  Object.entries(THEMES).forEach(([key, theme]) => {
+    const card = document.createElement('div');
+    card.className = 'theme-card';
+    const cvs = document.createElement('canvas');
+    render(cvs, key, true, 0.16);
+    card.innerHTML = `<div class="theme-card-info"><div><div class="theme-card-name">${theme.name}</div><div class="theme-card-desc">${theme.desc}</div></div><button class="theme-card-select">Select</button></div>`;
+    card.prepend(cvs);
+    const selectTheme = () => { themeEl.value = key; updateThemePreview(); render(canvas, key, true); modal.classList.remove('open'); status(`Theme: ${theme.name}`); };
+    card.querySelector('.theme-card-select').onclick = e => { e.stopPropagation(); selectTheme(); };
+    card.onclick = selectTheme;
+    themeGrid.appendChild(card);
+  });
+  zoom = savedZoom; panX = savedPanX; panY = savedPanY;
+  modal.classList.add('open');
+};
+modalClose.onclick = () => modal.classList.remove('open');
+modal.onclick = e => { if (e.target === modal) modal.classList.remove('open'); };
+
+// #2: Batch mode
+batchBtn.onclick = () => { batchModal.classList.add('open'); batchLog.innerHTML = ''; batchStatus.textContent = ''; batchProgress.classList.remove('active'); };
+batchClose.onclick = () => batchModal.classList.remove('open');
+batchModal.onclick = e => { if (e.target === batchModal) batchModal.classList.remove('open'); };
+
+batchStart.onclick = async () => {
+  const lines = batchInput.value.trim().split('\n').map(l => l.trim()).filter(l => l);
+  if (!lines.length) { batchStatus.textContent = 'Enter at least one city'; return; }
+  
+  const [sizeKey, orientKey] = batchSize.value.split('-');
+  const themeKey = batchTheme.value;
+  
+  batchStart.disabled = true;
+  batchProgress.classList.add('active');
+  batchLog.innerHTML = '';
+  
+  const results = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const pct = ((i + 1) / lines.length * 100).toFixed(0);
+    batchProgressBar.style.width = pct + '%';
+    batchStatus.textContent = `Processing ${i + 1}/${lines.length}: ${line}`;
+    batchLog.innerHTML += `<div>→ ${line}...</div>`;
+    batchLog.scrollTop = batchLog.scrollHeight;
+    
+    try {
+      // First try local database (instant)
+      const localResults = searchCities(line);
+      let cityName, countryName, lat, lon, useArea, areaId;
+      
+      if (localResults.length > 0) {
+        const city = localResults[0];
+        cityName = city.name;
+        countryName = city.country;
+        lat = city.lat;
+        lon = city.lon;
+        useArea = true;
+        areaId = 3600000000 + city.osm_id;
+        batchLog.innerHTML += `<div style="color:#888">⚡ Found in local database</div>`;
+      } else {
+        // Fallback to Photon API
+        batchLog.innerHTML += `<div style="color:#888">🌐 Searching online...</div>`;
+        const searchRes = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(line)}&limit=10`);
+        const searchJson = await searchRes.json();
+        const searchData = searchJson.features || [];
+        
+        const filtered = searchData.filter(f => {
+          const props = f.properties || {};
+          const type = props.type?.toLowerCase() || '';
+          return ['city', 'town', 'village', 'municipality', 'hamlet', 'suburb', 'district', 'borough', 'locality'].includes(type);
+        });
+        if (!filtered.length) throw new Error('No cities found');
+        
+        const f = filtered[0];
+        const props = f.properties || {};
+        const coords = f.geometry?.coordinates || [0, 0];
+        cityName = props.city || props.name || line.split(',')[0];
+        countryName = props.country || '';
+        lat = coords[1];
+        lon = coords[0];
+        useArea = props.osm_type === 'relation';
+        areaId = useArea ? 3600000000 + parseInt(props.osm_id) : null;
+      }
+      
+      // Fetch data
+      const types = ROAD_TYPES.join('|');
+      const radius = parseInt(radiusEl.value);
+      const streetQ = useArea
+        ? `[out:json][timeout:180];area(${areaId})->.a;way(area.a)["highway"~"^(${types})$"];out geom;`
+        : `[out:json][timeout:180];way["highway"~"^(${types})$"](around:${radius},${lat},${lon});out geom;`;
+      
+      const streetRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: streetQ });
+      const streets = await streetRes.json();
+      
+      if (!streets.elements?.length) throw new Error('No streets');
+      
+      let water = { elements: [] };
+      if (waterEl.checked) {
+        const waterQ = useArea
+          ? `[out:json][timeout:90];area(${areaId})->.a;(way(area.a)["natural"="water"];way(area.a)["waterway"~"river|canal|stream"];);out geom;`
+          : `[out:json][timeout:90];(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream"](around:${radius},${lat},${lon}););out geom;`;
+        try {
+          const waterRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: waterQ });
+          water = await waterRes.json();
+        } catch {}
+      }
+      
+      const bounds = calcBounds(streets, water);
+      data = { city: cityName, country: countryName, lat, lon, streets, water, bounds };
+      
+      // Render
+      const size = getSize(sizeKey, orientKey);
+      render(offscreen, themeKey, false, null, size);
+      
+      results.push({
+        name: `${cityName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${sizeKey}-${orientKey}-${themeKey}.png`,
+        dataUrl: offscreen.toDataURL('image/png')
+      });
+      
+      batchLog.innerHTML += `<div style="color:#6c6">✓ ${cityName} done</div>`;
+      
+      // Rate limit delay
+      if (i < lines.length - 1) await new Promise(r => setTimeout(r, 2000));
+      
+    } catch (e) {
+      batchLog.innerHTML += `<div style="color:#e55">✗ ${line}: ${e.message}</div>`;
+    }
+    batchLog.scrollTop = batchLog.scrollHeight;
+  }
+  
+  batchStatus.textContent = `Done! ${results.length}/${lines.length} successful`;
+  batchStart.disabled = false;
+  
+  // Download all
+  if (results.length) {
+    batchLog.innerHTML += `<div style="margin-top:8px;">Downloading ${results.length} files...</div>`;
+    for (const r of results) {
+      const a = document.createElement('a');
+      a.download = r.name;
+      a.href = r.dataUrl;
+      a.click();
+      await new Promise(res => setTimeout(res, 300));
+    }
+  }
+};
+
+document.onkeydown = e => { if (e.key === 'Escape') { modal.classList.remove('open'); batchModal.classList.remove('open'); } };
+
+// Re-render on option changes
+document.querySelectorAll('[name="size"], [name="orient"]').forEach(el => { el.onchange = () => { if (data) render(canvas, themeEl.value, true); }; });
+waterEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
+showCoordsEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
+fontStyleEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
+customCityEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
+customCountryEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
+
+// Auto-load Austin on page load
+window.addEventListener('load', () => {
+  // Initialize city list
+  renderCityList();
+  
+  // Select Austin by default
+  setTimeout(() => selectCity('austin'), 100);
+});
+</script>
+</body>
+</html>
