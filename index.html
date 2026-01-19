@@ -1061,7 +1061,8 @@ dlSvgBtn.onclick = () => {
 
 // Compare modal
 compareBtn.onclick = () => {
-  if (!data) return;
+  console.log('Compare clicked, data:', data);
+  if (!data) { console.log('No data, returning'); return; }
   themeGrid.innerHTML = '';
   // Temporarily reset zoom for compare renders
   const savedZoom = zoom, savedPanX = panX, savedPanY = panY;
