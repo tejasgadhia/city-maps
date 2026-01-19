@@ -804,16 +804,23 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
   
+  // Helper to convert 3-char hex to 6-char hex
+  const expandHex = (hex) => {
+    if (hex.length === 4) return '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
+    return hex;
+  };
+  const bgColor = expandHex(theme.bg);
+  
   // Fades (only for final render, skip for zoomed preview)
   if (!isPreview || zoom === 1) {
     const fadeH = h * 0.08;
     let grad = ctx.createLinearGradient(0, 0, 0, fadeH);
-    grad.addColorStop(0, theme.bg); grad.addColorStop(1, theme.bg + '00');
+    grad.addColorStop(0, bgColor); grad.addColorStop(1, bgColor + '00');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, fadeH);
     
     grad = ctx.createLinearGradient(0, mapTop + mapH - fadeH, 0, mapTop + mapH + fadeH * 0.5);
-    grad.addColorStop(0, theme.bg + '00'); grad.addColorStop(1, theme.bg);
+    grad.addColorStop(0, bgColor + '00'); grad.addColorStop(1, bgColor);
     ctx.fillStyle = grad;
     ctx.fillRect(0, mapTop + mapH - fadeH, w, fadeH * 1.5);
   }
