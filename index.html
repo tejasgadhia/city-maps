@@ -16,7 +16,6 @@
       --text2: #888;
       --text3: #555;
       --accent: #4a9eff;
-      --sidebar-width: 280px;
     }
     
     [data-ui="classic"] {
@@ -34,92 +33,59 @@
       font-family: system-ui, -apple-system, sans-serif;
       background: var(--bg);
       color: var(--text);
+      padding: 20px;
       min-height: 100vh;
       transition: background 0.3s, color 0.3s;
     }
-    
-    /* === NEW LAYOUT === */
     .app {
+      max-width: 1100px;
+      margin: 0 auto;
       display: grid;
-      grid-template-columns: var(--sidebar-width) 1fr;
-      min-height: 100vh;
+      grid-template-columns: 320px 1fr;
+      gap: 24px;
     }
-    
-    /* === LEFT SIDEBAR === */
-    .sidebar {
-      background: var(--bg2);
-      border-right: 1px solid var(--border);
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      overflow-y: auto;
-      max-height: 100vh;
-      position: sticky;
-      top: 0;
-    }
-    
-    .sidebar-header {
+    .header {
+      grid-column: 1 / -1;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
+      margin-bottom: 8px;
     }
-    
-    .logo {
-      font-weight: 200;
-      letter-spacing: 4px;
-      font-size: 16px;
-    }
-    
-    /* Theme Toggle in Sidebar */
-    .theme-toggle {
+    h1 { font-weight: 200; letter-spacing: 6px; font-size: 24px; }
+    .ui-toggle {
       display: flex;
-      background: var(--bg3);
+      gap: 4px;
+      background: var(--bg2);
+      padding: 4px;
       border-radius: 6px;
-      padding: 3px;
+      border: 1px solid var(--border);
     }
-    .theme-toggle button {
-      padding: 5px 10px;
+    .ui-toggle button {
+      padding: 6px 12px;
       border: none;
       background: transparent;
       color: var(--text2);
       border-radius: 4px;
       cursor: pointer;
-      font-size: 11px;
+      font-size: 12px;
       transition: all 0.2s;
     }
-    .theme-toggle button.active { background: var(--accent); color: #fff; }
-    .theme-toggle button:hover:not(.active) { background: var(--bg); }
-    
-    .sidebar-section {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    
-    .section-label {
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: var(--text3);
-      margin-bottom: 4px;
-    }
-    
-    /* Search Box */
-    .search-box { position: relative; }
-    .search-box input {
+    .ui-toggle button.active { background: var(--accent); color: #fff; }
+    .ui-toggle button:hover:not(.active) { background: var(--bg3); }
+    .panel { display: flex; flex-direction: column; gap: 12px; }
+    label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text2); }
+    input, select, textarea {
       width: 100%;
-      padding: 10px 12px;
+      padding: 10px;
       border: 1px solid var(--border);
-      background: var(--bg);
+      background: var(--bg2);
       color: var(--text);
-      border-radius: 8px;
-      font-size: 13px;
+      border-radius: 4px;
+      font-size: 14px;
+      transition: all 0.2s;
     }
-    .search-box input:focus { outline: none; border-color: var(--accent); }
-    
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+    .search-box { position: relative; }
     .results {
       position: absolute;
       top: 100%;
@@ -128,11 +94,11 @@
       background: var(--bg2);
       border: 1px solid var(--border);
       border-top: none;
-      border-radius: 0 0 8px 8px;
-      max-height: 250px;
+      border-radius: 0 0 4px 4px;
+      max-height: 200px;
       overflow-y: auto;
-      z-index: 100;
       display: none;
+      z-index: 10;
     }
     .results.open { display: block; }
     .results div {
@@ -142,746 +108,334 @@
       border-bottom: 1px solid var(--border);
     }
     .results div:hover { background: var(--bg3); }
-    .results div:last-child { border-bottom: none; }
     .results small { color: var(--text3); font-size: 10px; }
-    .results .instant-badge {
-      display: inline-block;
-      background: var(--accent);
-      color: #fff;
-      font-size: 9px;
-      padding: 2px 5px;
-      border-radius: 3px;
-      margin-left: 6px;
-    }
-    
-    .selected-city {
-      background: var(--accent);
-      color: #fff;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 13px;
-      display: none;
-    }
-    .selected-city.visible { display: flex; align-items: center; justify-content: space-between; }
-    .selected-city .clear-btn {
-      background: none;
-      border: none;
-      color: rgba(255,255,255,0.7);
-      cursor: pointer;
-      font-size: 16px;
-      padding: 0 4px;
-    }
-    .selected-city .clear-btn:hover { color: #fff; }
-    
-    /* Recent Cities */
-    .recent-cities {
+    .selected { color: var(--accent); font-size: 13px; min-height: 18px; margin: -4px 0 4px; }
+    .radio-group { display: flex; gap: 12px; margin-top: 4px; flex-wrap: wrap; }
+    .radio-group label { display: flex; align-items: center; font-size: 13px; text-transform: none; color: var(--text); cursor: pointer; }
+    .theme-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+    .theme-preview {
+      width: 60px;
+      height: 36px;
+      border-radius: 4px;
       display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .recent-chip {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      padding: 5px 10px;
-      border-radius: 15px;
-      font-size: 11px;
-      cursor: pointer;
-      transition: all 0.2s;
-      color: var(--text2);
-    }
-    .recent-chip:hover { border-color: var(--accent); color: var(--text); }
-    .recent-chip.cached { border-color: var(--accent); background: rgba(74, 158, 255, 0.1); }
-    
-    .divider {
-      height: 1px;
-      background: var(--border);
-      margin: 8px 0;
-    }
-</style>
-</head>
-<body data-ui="dark">
-<!-- Rest of HTML will continue in next chunk -->
-    /* Sidebar inputs */
-    .sidebar select {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--text);
-      border-radius: 8px;
-      font-size: 13px;
-      cursor: pointer;
-    }
-    .sidebar select:focus { outline: none; border-color: var(--accent); }
-    
-    .theme-preview-small {
-      display: flex;
-      gap: 2px;
-      margin-top: 6px;
-    }
-    .theme-preview-small span {
-      width: 16px;
-      height: 16px;
-      border-radius: 3px;
-    }
-    
-    .checkbox-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      color: var(--text2);
-      cursor: pointer;
-    }
-    .checkbox-row input { width: auto; }
-    
-    .slider-row label {
-      font-size: 11px;
-      color: var(--text2);
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 4px;
-    }
-    .slider-row input[type="range"] {
-      width: 100%;
-      height: 4px;
-      -webkit-appearance: none;
-      background: var(--border);
-      border-radius: 2px;
-      outline: none;
-    }
-    .slider-row input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 14px;
-      height: 14px;
-      background: var(--accent);
-      border-radius: 50%;
-      cursor: pointer;
-    }
-    
-    /* Collapsible */
-    .collapsible-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-      padding: 10px 0;
-      font-size: 12px;
-      color: var(--text2);
-      border-top: 1px solid var(--border);
-    }
-    .collapsible-header::after {
-      content: '▼';
-      font-size: 10px;
-      transition: transform 0.2s;
-    }
-    .collapsible.open .collapsible-header::after { transform: rotate(180deg); }
-    .collapsible-content {
-      display: none;
-      padding: 12px 0;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .collapsible.open .collapsible-content { display: flex; }
-    
-    /* === MAIN AREA === */
-    .main {
-      display: flex;
-      flex-direction: column;
-      padding: 20px;
-      gap: 20px;
-    }
-    
-    .main-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    
-    .zoom-controls {
-      display: none;
-      align-items: center;
-      gap: 8px;
-    }
-    .zoom-controls.visible { display: flex; }
-    .zoom-controls button {
-      background: var(--bg2);
-      border: 1px solid var(--border);
-      color: var(--text);
-      width: 32px;
-      height: 32px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 16px;
-    }
-    .zoom-controls button:hover { background: var(--bg3); }
-    .zoom-controls span { font-size: 12px; color: var(--text2); min-width: 50px; text-align: center; }
-    
-    /* Preview Container */
-    .preview-container {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: var(--bg2);
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      position: relative;
       overflow: hidden;
-      min-height: 400px;
-    }
-    
-    .preview-container canvas {
-      max-width: 100%;
-      max-height: 100%;
-      cursor: grab;
-    }
-    .preview-container canvas:active { cursor: grabbing; }
-    
-    /* Grid Overlay */
-    .grid-overlay {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-    .grid-overlay.visible { opacity: 1; }
-    .grid-overlay svg { width: 100%; height: 100%; }
-    
-    /* Snap Indicator */
-    .snap-indicator {
-      position: absolute;
-      background: var(--accent);
-      opacity: 0;
-      transition: opacity 0.15s;
-      z-index: 10;
-    }
-    .snap-indicator.horizontal {
-      height: 1px;
-      left: 0;
-      right: 0;
-    }
-    .snap-indicator.vertical {
-      width: 1px;
-      top: 0;
-      bottom: 0;
-    }
-    .snap-indicator.visible { opacity: 0.7; }
-    
-    /* === CONTROLS PANEL (below preview) === */
-    .controls-panel {
-      background: var(--bg2);
-      border-radius: 12px;
       border: 1px solid var(--border);
-      padding: 20px;
     }
-    
-    .controls-row {
-      display: flex;
-      gap: 24px;
-      align-items: flex-start;
-      flex-wrap: wrap;
-    }
-    
-    .control-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    
-    .control-label {
-      font-size: 10px;
+    .theme-preview span { flex: 1; }
+    button {
+      padding: 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: var(--text3);
-    }
-    /* === ANIMATED PILL TOGGLE === */
-    .pill-toggle {
-      display: inline-flex;
-      background: var(--bg);
-      border-radius: 10px;
-      padding: 4px;
-      position: relative;
-      border: 1px solid var(--border);
-    }
-    .pill-toggle input { display: none; }
-    .pill-toggle label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 16px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 13px;
-      color: var(--text2);
-      transition: color 0.3s;
-      position: relative;
-      z-index: 1;
-      white-space: nowrap;
-    }
-    .pill-toggle label svg {
-      width: 16px;
-      height: 16px;
-      flex-shrink: 0;
-    }
-    .pill-toggle input:checked + label { color: #fff; }
-    .pill-slider {
-      position: absolute;
-      top: 4px;
-      left: 4px;
-      height: calc(100% - 8px);
-      background: var(--accent);
-      border-radius: 8px;
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 0;
-    }
-    
-    /* === DOWNLOAD BUTTONS === */
-    .download-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    .download-buttons {
-      display: flex;
-      gap: 10px;
-    }
-    .download-btn {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 12px 20px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      cursor: pointer;
-      font-size: 13px;
       transition: all 0.2s;
     }
-    .download-btn:hover:not(:disabled) { border-color: var(--accent); background: var(--bg3); }
-    .download-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .download-btn svg { width: 18px; height: 18px; }
-    .download-btn.primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
+    .btn-go { background: var(--accent); color: #fff; }
+    .btn-go:hover { filter: brightness(1.1); }
+    .btn-go:disabled { background: var(--bg3); color: var(--text3); cursor: not-allowed; filter: none; }
+    .btn-secondary { background: var(--bg2); color: var(--text2); border: 1px solid var(--border); }
+    .btn-secondary:hover:not(:disabled) { background: var(--bg3); }
+    .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .status { font-size: 12px; color: var(--text2); min-height: 16px; }
+    .status.err { color: #e55; }
+    .preview-area { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    #preview { max-width: 100%; max-height: 70vh; border: 1px solid var(--border); background: #000; cursor: grab; }
+    #preview:active { cursor: grabbing; }
+    #offscreen { display: none; }
+    .divider { border-top: 1px solid var(--border); margin: 4px 0; }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .small-input { padding: 8px; font-size: 13px; }
+    .hint { font-size: 10px; color: var(--text3); margin-top: -6px; }
+    .checkbox-row {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      font-size: 13px; color: var(--text);
     }
-    .download-btn.primary:hover:not(:disabled) { background: #3a8eef; }
-    .download-help {
-      font-size: 11px;
-      color: var(--text3);
-      max-width: 300px;
-      line-height: 1.5;
+    .checkbox-row input { width: auto; margin: 0; }
+    .collapsible { 
+      background: var(--bg2); 
+      border: 1px solid var(--border); 
+      border-radius: 4px; 
+      overflow: hidden;
     }
-    
-    /* Action Buttons */
-    .action-buttons {
-      display: flex;
-      gap: 10px;
-      margin-left: auto;
-    }
-    .btn {
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-size: 13px;
+    .collapsible-header {
+      padding: 10px 12px;
       cursor: pointer;
-      transition: all 0.2s;
-      border: 1px solid var(--border);
-    }
-    .btn-primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
-    }
-    .btn-primary:hover { background: #3a8eef; }
-    .btn-secondary {
-      background: var(--bg);
-      color: var(--text);
-    }
-    .btn-secondary:hover { background: var(--bg3); }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    
-    /* Status */
-    .status {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
       color: var(--text2);
-      display: flex;
-      align-items: center;
-      gap: 8px;
     }
-    .status.error { color: #e55; }
+    .collapsible-header:hover { background: var(--bg3); }
+    .collapsible-content { padding: 12px; display: none; border-top: 1px solid var(--border); }
+    .collapsible.open .collapsible-content { display: block; }
+    .collapsible-header::after { content: '▼'; font-size: 10px; transition: transform 0.2s; }
+    .collapsible.open .collapsible-header::after { transform: rotate(180deg); }
+    
+    /* Recent cities */
+    .recent { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .recent-chip {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      cursor: pointer;
+      color: var(--text2);
+    }
+    .recent-chip:hover { border-color: var(--accent); color: var(--accent); }
+    
+    /* Progress bar */
+    .progress { width: 100%; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-top: 4px; display: none; }
+    .progress.active { display: block; }
+    .progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; }
+    
+    /* Zoom controls */
+    .zoom-controls { display: flex; gap: 8px; align-items: center; }
+    .zoom-controls button { padding: 6px 12px; font-size: 16px; }
+    .zoom-controls span { font-size: 12px; color: var(--text2); min-width: 50px; text-align: center; }
+    
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 100;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .modal.open { display: block; }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1400px;
+      margin: 0 auto 20px;
+    }
+    .modal-header h2 { font-weight: 300; letter-spacing: 2px; font-size: 18px; color: #fff; }
+    .modal-close {
+      background: #333;
+      border: none;
+      color: #fff;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .modal-close:hover { background: #444; }
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .theme-card {
+      background: #1a1a1a;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .theme-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+    .theme-card canvas { width: 100%; display: block; }
+    .theme-card-info { padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; }
+    .theme-card-name { font-size: 13px; font-weight: 500; color: #fff; }
+    .theme-card-desc { font-size: 10px; color: #666; }
+    .theme-card-select {
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 10px;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    
+    /* Batch modal */
+    .batch-input { min-height: 150px; font-family: monospace; font-size: 12px; resize: vertical; }
+    .batch-status { margin-top: 12px; }
+    .batch-progress { margin: 8px 0; }
+    .batch-log { font-size: 11px; color: var(--text2); max-height: 100px; overflow-y: auto; font-family: monospace; }
+    
     .spinner {
+      display: inline-block;
       width: 14px;
       height: 14px;
       border: 2px solid var(--text3);
       border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     
-    .progress {
-      height: 3px;
-      background: var(--border);
-      border-radius: 2px;
-      overflow: hidden;
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-    .progress.active { opacity: 1; }
-    .progress-bar {
-      height: 100%;
-      background: var(--accent);
-      width: 0%;
-      transition: width 0.3s;
-    }
-    
-    /* === MODALS === */
-    .modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.8);
-      display: none;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      padding: 20px;
-    }
-    .modal.open { display: flex; }
-    .modal-content {
-      background: var(--bg2);
-      border-radius: 12px;
-      max-width: 900px;
-      max-height: 90vh;
-      overflow-y: auto;
-      width: 100%;
-    }
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-      font-size: 14px;
-      letter-spacing: 2px;
-    }
-    .modal-close {
-      background: none;
-      border: none;
-      color: var(--text2);
-      font-size: 24px;
-      cursor: pointer;
-    }
-    .modal-close:hover { color: var(--text); }
-    .modal-body { padding: 20px; }
-    
-    /* Theme Grid */
-    .theme-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 16px;
-    }
-    .theme-card {
-      background: var(--bg);
-      border: 2px solid var(--border);
-      border-radius: 10px;
-      overflow: hidden;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .theme-card:hover { border-color: var(--accent); transform: translateY(-2px); }
-    .theme-card canvas { width: 100%; display: block; }
-    .theme-card-info {
-      padding: 12px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .theme-card-name { font-size: 13px; font-weight: 500; }
-    .theme-card-desc { font-size: 11px; color: var(--text2); }
-    .theme-card-select {
-      background: var(--accent);
-      border: none;
-      color: #fff;
-      padding: 6px 12px;
-      border-radius: 5px;
-      font-size: 11px;
-      cursor: pointer;
-    }
-    
-    /* Batch Modal */
-    .batch-input {
-      width: 100%;
-      min-height: 150px;
-      padding: 12px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: var(--text);
-      font-family: monospace;
-      font-size: 12px;
-      resize: vertical;
-    }
-    .batch-options { display: flex; gap: 16px; margin: 16px 0; flex-wrap: wrap; }
-    .batch-options select {
-      padding: 10px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-    }
-    .batch-log {
-      background: var(--bg);
-      border-radius: 6px;
-      padding: 12px;
-      font-family: monospace;
-      font-size: 11px;
-      max-height: 150px;
-      overflow-y: auto;
-      margin-top: 12px;
-    }
-    
-    /* Hidden */
-    #offscreen { display: none; }
-    
-    /* Responsive */
-    @media (max-width: 900px) {
-      .app { grid-template-columns: 1fr; }
-      .sidebar {
-        position: relative;
-        max-height: none;
-        border-right: none;
-        border-bottom: 1px solid var(--border);
-      }
-      .controls-row { flex-direction: column; }
-      .action-buttons { margin-left: 0; margin-top: 16px; width: 100%; }
-      .action-buttons .btn { flex: 1; }
-    }
+    @media (max-width: 700px) { .app { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body data-ui="dark">
 <div class="app">
-  <!-- LEFT SIDEBAR -->
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      <span class="logo">MAPTOPOSTER</span>
-      <div class="theme-toggle">
-        <button id="uiClassic">Classic</button>
-        <button id="uiDark" class="active">Dark</button>
-      </div>
+  <div class="header">
+    <h1>MAPTOPOSTER</h1>
+    <div class="ui-toggle">
+      <button id="uiClassic">Classic</button>
+      <button id="uiDark" class="active">Dark</button>
     </div>
-    
-    <!-- City Search -->
-    <div class="sidebar-section">
-      <span class="section-label">Search City</span>
+  </div>
+  
+  <div class="panel">
+    <label>Search City
       <div class="search-box">
         <input type="text" id="search" placeholder="Type a city name..." autocomplete="off">
         <div class="results" id="results"></div>
       </div>
-      <div class="selected-city" id="selected">
-        <span id="selectedText"></span>
-        <button class="clear-btn" id="clearCity">×</button>
-      </div>
-    </div>
-    
-    <!-- Recent Cities -->
-    <div class="sidebar-section" id="recentSection" style="display:none;">
-      <span class="section-label">Recent</span>
-      <div class="recent-cities" id="recent"></div>
-    </div>
-    
+    </label>
+    <div class="selected" id="selected"></div>
+    <div class="recent" id="recent"></div>
+
     <div class="divider"></div>
     
-    <!-- Custom Names -->
-    <div class="sidebar-section">
-      <span class="section-label">Display Name (optional)</span>
-      <input type="text" id="customCity" placeholder="Auto-detect" style="padding:8px 10px; font-size:12px;">
-      <input type="text" id="customCountry" placeholder="Country/subtitle" style="padding:8px 10px; font-size:12px; margin-top:6px;">
+    <!-- #1: Custom Text Override -->
+    <div class="row-2">
+      <label>Display Name
+        <input type="text" id="customCity" class="small-input" placeholder="Auto">
+      </label>
+      <label>Country/Subtitle
+        <input type="text" id="customCountry" class="small-input" placeholder="Auto">
+      </label>
     </div>
-    
+    <div class="hint">Leave blank to use detected names</div>
+
     <div class="divider"></div>
-    
-    <!-- Theme -->
-    <div class="sidebar-section">
-      <span class="section-label">Map Theme</span>
-      <select id="theme"></select>
-      <div class="theme-preview-small" id="themePreview"></div>
+
+    <div class="theme-row">
+      <label>Map Theme
+        <select id="theme"></select>
+      </label>
+      <div class="theme-preview" id="themePreview"></div>
     </div>
     
-    <!-- Font -->
-    <div class="sidebar-section">
-      <span class="section-label">Font Style</span>
+    <!-- #9: Font Selection -->
+    <label>Font Style
       <select id="fontStyle">
         <option value="system-ui, sans-serif">Clean Sans</option>
         <option value="Georgia, serif">Classic Serif</option>
         <option value="'Courier New', monospace">Typewriter</option>
       </select>
-    </div>
-    
+    </label>
+
     <div class="divider"></div>
     
-    <!-- Advanced Options -->
+    <!-- Advanced Options Collapsible -->
     <div class="collapsible" id="advancedCollapsible">
       <div class="collapsible-header">Advanced Options</div>
       <div class="collapsible-content">
         <label class="checkbox-row">
           <input type="checkbox" id="water" checked> Show water bodies
         </label>
-        <label class="checkbox-row">
+        
+        <!-- #8: Hide Coordinates Toggle -->
+        <label class="checkbox-row" style="margin-top:8px;">
           <input type="checkbox" id="showCoords" checked> Show coordinates
         </label>
-        <div class="slider-row">
-          <label>Road Thickness <span id="roadWeightVal">1.0×</span></label>
+        
+        <!-- #10: Road Weight Slider -->
+        <label style="margin-top:12px;">Road Thickness: <span id="roadWeightVal">1.0×</span>
           <input type="range" id="roadWeight" min="0.5" max="2" value="1" step="0.1">
-        </div>
-        <div class="slider-row">
-          <label>Fallback Radius <span id="radVal">6 mi</span></label>
+        </label>
+        
+        <label style="margin-top:8px;">Fallback Radius: <span id="radVal">6 mi</span>
           <input type="range" id="radius" min="4000" max="40000" value="10000" step="1000">
-        </div>
+        </label>
+        <div class="hint">Used when city boundary unavailable</div>
       </div>
     </div>
-    
+
     <div class="divider"></div>
-    
-    <!-- Batch Mode Button -->
-    <button class="btn btn-secondary" id="batch" style="width:100%;">Batch Mode</button>
-    <button class="btn btn-secondary" id="compare" disabled style="width:100%; margin-top:8px;">Compare All Themes</button>
-  </aside>
-  
-  <!-- MAIN CONTENT -->
-  <main class="main">
-    <div class="main-header">
-      <div class="status" id="status">Select a city to get started</div>
-      <div class="zoom-controls" id="zoomControls">
-        <button id="zoomOut">−</button>
-        <span id="zoomLevel">100%</span>
-        <button id="zoomIn">+</button>
-        <button id="zoomReset" style="font-size:11px; width:auto; padding:0 10px;">Reset</button>
+
+    <label>Orientation
+      <div class="radio-group">
+        <label><input type="radio" name="orient" value="portrait" checked> Portrait</label>
+        <label><input type="radio" name="orient" value="landscape"> Landscape</label>
       </div>
-    </div>
+    </label>
+
+    <label>Size
+      <div class="radio-group">
+        <label><input type="radio" name="size" value="5x7" checked> 5×7"</label>
+        <label><input type="radio" name="size" value="8x10"> 8×10"</label>
+      </div>
+    </label>
+
+    <div class="divider"></div>
+
+    <button class="btn-go" id="generate">Generate Preview</button>
+    <button class="btn-secondary" id="compare" disabled>Compare All Themes</button>
+    <button class="btn-secondary" id="batch">Batch Mode</button>
+    <button class="btn-secondary" id="download" disabled>Download PNG</button>
+    <button class="btn-secondary" id="downloadSvg" disabled>Download SVG</button>
     
+    <div class="status" id="status"></div>
+    <!-- #13: Progress bar -->
     <div class="progress" id="progress"><div class="progress-bar" id="progressBar"></div></div>
-    
-    <!-- Preview -->
-    <div class="preview-container" id="previewContainer">
-      <canvas id="preview"></canvas>
-      <div class="grid-overlay" id="gridOverlay">
-        <svg id="gridSvg"></svg>
-      </div>
-      <div class="snap-indicator horizontal" id="snapH"></div>
-      <div class="snap-indicator vertical" id="snapV"></div>
+  </div>
+
+  <div class="preview-area">
+    <!-- #6: Zoom controls -->
+    <div class="zoom-controls" id="zoomControls" style="display:none;">
+      <button class="btn-secondary" id="zoomOut">−</button>
+      <span id="zoomLevel">100%</span>
+      <button class="btn-secondary" id="zoomIn">+</button>
+      <button class="btn-secondary" id="zoomReset">Reset</button>
     </div>
-    
-    <!-- Controls Panel -->
-    <div class="controls-panel">
-      <div class="controls-row">
-        <!-- Orientation -->
-        <div class="control-group">
-          <span class="control-label">Orientation</span>
-          <div class="pill-toggle" id="orientToggle">
-            <div class="pill-slider"></div>
-            <input type="radio" name="orient" id="orientPortrait" value="portrait" checked>
-            <label for="orientPortrait">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="2"/></svg>
-              Portrait
-            </label>
-            <input type="radio" name="orient" id="orientLandscape" value="landscape">
-            <label for="orientLandscape">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/></svg>
-              Landscape
-            </label>
-          </div>
-        </div>
-        
-        <!-- Size -->
-        <div class="control-group">
-          <span class="control-label">Size</span>
-          <div class="pill-toggle" id="sizeToggle">
-            <div class="pill-slider"></div>
-            <input type="radio" name="size" id="size5x7" value="5x7" checked>
-            <label for="size5x7">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="7" y="5" width="10" height="14" rx="1" stroke-dasharray="2 1"/>
-              </svg>
-              5×7"
-            </label>
-            <input type="radio" name="size" id="size8x10" value="8x10">
-            <label for="size8x10">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="4" y="2" width="16" height="20" rx="1"/>
-              </svg>
-              8×10"
-            </label>
-          </div>
-        </div>
-        
-        <!-- Download Buttons -->
-        <div class="download-group">
-          <span class="control-label">Download</span>
-          <div class="download-buttons">
-            <button class="download-btn primary" id="download" disabled>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
-              PNG
-            </button>
-            <button class="download-btn" id="downloadSvg" disabled>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
-              SVG
-            </button>
-          </div>
-          <div class="download-help">
-            <strong>PNG</strong> — Best for printing. High-res raster image.<br>
-            <strong>SVG</strong> — Best for editing. Scalable vector format.
-          </div>
-        </div>
-        
-        <!-- Generate Button -->
-        <div class="action-buttons">
-          <button class="btn btn-primary" id="generate">Generate Preview</button>
-        </div>
-      </div>
-    </div>
-  </main>
+    <canvas id="preview"></canvas>
+  </div>
 </div>
 
 <!-- Compare Modal -->
 <div class="modal" id="modal">
-  <div class="modal-content">
-    <div class="modal-header">
-      COMPARE THEMES
-      <button class="modal-close" id="modalClose">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="theme-grid" id="themeGrid"></div>
-    </div>
+  <div class="modal-header">
+    <h2>COMPARE THEMES</h2>
+    <button class="modal-close" id="modalClose">×</button>
   </div>
+  <div class="theme-grid" id="themeGrid"></div>
 </div>
 
-<!-- Batch Modal -->
+<!-- #2: Batch Modal -->
 <div class="modal" id="batchModal">
-  <div class="modal-content">
-    <div class="modal-header">
-      BATCH MODE
-      <button class="modal-close" id="batchClose">×</button>
-    </div>
-    <div class="modal-body">
-      <p style="margin-bottom:12px; color:var(--text2); font-size:13px;">Enter one city per line (e.g., "Paris, France")</p>
-      <textarea class="batch-input" id="batchInput" placeholder="Paris, France&#10;Tokyo, Japan&#10;New York, USA"></textarea>
-      <div class="batch-options">
+  <div class="modal-header">
+    <h2>BATCH MODE</h2>
+    <button class="modal-close" id="batchClose">×</button>
+  </div>
+  <div style="max-width:600px;margin:0 auto;">
+    <label style="color:#fff;">Enter cities (one per line, format: City, Country)
+      <textarea class="batch-input" id="batchInput" placeholder="New York, USA&#10;London, UK&#10;Tokyo, Japan&#10;Paris, France"></textarea>
+    </label>
+    <div class="row-2" style="margin-top:12px;">
+      <label style="color:#fff;">Theme
         <select id="batchTheme"></select>
+      </label>
+      <label style="color:#fff;">Size
         <select id="batchSize">
           <option value="5x7-portrait">5×7" Portrait</option>
           <option value="5x7-landscape">5×7" Landscape</option>
           <option value="8x10-portrait">8×10" Portrait</option>
           <option value="8x10-landscape">8×10" Landscape</option>
         </select>
-        <button class="btn btn-primary" id="batchStart">Start Batch</button>
-      </div>
-      <div class="progress" id="batchProgress"><div class="progress-bar" id="batchProgressBar"></div></div>
-      <div id="batchStatus" style="font-size:12px; color:var(--text2); margin-top:8px;"></div>
-      <div class="batch-log" id="batchLog"></div>
+      </label>
     </div>
+    <button class="btn-go" id="batchStart" style="margin-top:16px;width:100%;">Start Batch</button>
+    <div class="batch-status" id="batchStatus"></div>
+    <div class="progress batch-progress" id="batchProgress"><div class="progress-bar" id="batchProgressBar"></div></div>
+    <div class="batch-log" id="batchLog"></div>
   </div>
 </div>
 
@@ -912,26 +466,16 @@ const SIZES = {
 const BASE_WIDTHS = [2.5, 2, 1.5, 1, 0.5];
 
 let place = null, data = null, recentCities = [], zoom = 1, panX = 0, panY = 0;
-let isEditMode = false, gridVisible = false;
 
 const $ = id => document.getElementById(id);
-
-// DOM Elements
-const searchEl = $('search'), resultsEl = $('results');
-const selectedEl = $('selected'), selectedTextEl = $('selectedText'), clearCityBtn = $('clearCity');
-const recentEl = $('recent'), recentSection = $('recentSection');
+const searchEl = $('search'), resultsEl = $('results'), selectedEl = $('selected'), recentEl = $('recent');
 const customCityEl = $('customCity'), customCountryEl = $('customCountry');
-const themeEl = $('theme'), previewEl = $('themePreview');
-const waterEl = $('water'), showCoordsEl = $('showCoords');
+const themeEl = $('theme'), previewEl = $('themePreview'), waterEl = $('water'), showCoordsEl = $('showCoords');
 const fontStyleEl = $('fontStyle'), roadWeightEl = $('roadWeight'), roadWeightValEl = $('roadWeightVal');
 const radiusEl = $('radius'), radValEl = $('radVal');
-const genBtn = $('generate'), dlBtn = $('download'), dlSvgBtn = $('downloadSvg');
-const compareBtn = $('compare'), batchBtn = $('batch');
+const genBtn = $('generate'), dlBtn = $('download'), dlSvgBtn = $('downloadSvg'), compareBtn = $('compare'), batchBtn = $('batch');
 const statusEl = $('status'), progressEl = $('progress'), progressBar = $('progressBar');
 const canvas = $('preview'), offscreen = $('offscreen');
-const previewContainer = $('previewContainer');
-const gridOverlay = $('gridOverlay'), gridSvg = $('gridSvg');
-const snapH = $('snapH'), snapV = $('snapV');
 const modal = $('modal'), modalClose = $('modalClose'), themeGrid = $('themeGrid');
 const batchModal = $('batchModal'), batchClose = $('batchClose'), batchInput = $('batchInput');
 const batchTheme = $('batchTheme'), batchSize = $('batchSize'), batchStart = $('batchStart');
@@ -939,66 +483,19 @@ const batchStatus = $('batchStatus'), batchProgress = $('batchProgress'), batchP
 const uiClassic = $('uiClassic'), uiDark = $('uiDark');
 const zoomControls = $('zoomControls'), zoomIn = $('zoomIn'), zoomOut = $('zoomOut'), zoomReset = $('zoomReset'), zoomLevel = $('zoomLevel');
 const advancedCollapsible = $('advancedCollapsible');
-const orientToggle = $('orientToggle'), sizeToggle = $('sizeToggle');
 
-// === ANIMATED PILL TOGGLE ===
-function initPillToggle(toggle) {
-  const slider = toggle.querySelector('.pill-slider');
-  const inputs = toggle.querySelectorAll('input');
-  
-  function updateSlider() {
-    const checked = toggle.querySelector('input:checked');
-    if (!checked) return;
-    const label = checked.nextElementSibling;
-    const toggleRect = toggle.getBoundingClientRect();
-    const labelRect = label.getBoundingClientRect();
-    slider.style.width = labelRect.width + 'px';
-    slider.style.transform = `translateX(${labelRect.left - toggleRect.left - 4}px)`;
-  }
-  
-  // Initial
-  setTimeout(updateSlider, 0);
-  
-  // On change
-  inputs.forEach(input => {
-    input.addEventListener('change', () => {
-      updateSlider();
-      if (data) render(canvas, themeEl.value, true);
-    });
-  });
-  
-  // Resize handler
-  window.addEventListener('resize', updateSlider);
-}
+// Collapsible
+advancedCollapsible.querySelector('.collapsible-header').onclick = () => advancedCollapsible.classList.toggle('open');
 
-initPillToggle(orientToggle);
-initPillToggle(sizeToggle);
-
-// === UI THEME TOGGLE ===
-uiClassic.onclick = () => { 
-  document.body.dataset.ui = 'classic'; 
-  uiClassic.classList.add('active'); 
-  uiDark.classList.remove('active'); 
-  localStorage.setItem('ui', 'classic'); 
-};
-uiDark.onclick = () => { 
-  document.body.dataset.ui = 'dark'; 
-  uiDark.classList.add('active'); 
-  uiClassic.classList.remove('active'); 
-  localStorage.setItem('ui', 'dark'); 
-};
+// UI theme toggle
+uiClassic.onclick = () => { document.body.dataset.ui = 'classic'; uiClassic.classList.add('active'); uiDark.classList.remove('active'); localStorage.setItem('ui', 'classic'); };
+uiDark.onclick = () => { document.body.dataset.ui = 'dark'; uiDark.classList.add('active'); uiClassic.classList.remove('active'); localStorage.setItem('ui', 'dark'); };
 if (localStorage.getItem('ui') === 'classic') uiClassic.click();
 
-// === COLLAPSIBLE ===
-advancedCollapsible.querySelector('.collapsible-header').onclick = () => {
-  advancedCollapsible.classList.toggle('open');
-};
-
-// === INIT THEME DROPDOWNS ===
+// Init theme dropdowns
 Object.entries(THEMES).forEach(([k, t]) => {
   const opt = document.createElement('option');
-  opt.value = k;
-  opt.textContent = `${t.name} — ${t.desc}`;
+  opt.value = k; opt.textContent = `${t.name} — ${t.desc}`;
   themeEl.appendChild(opt);
   batchTheme.appendChild(opt.cloneNode(true));
 });
@@ -1008,25 +505,18 @@ function updateThemePreview() {
   previewEl.style.background = t.bg;
   previewEl.innerHTML = t.roads.map(c => `<span style="background:${c}"></span>`).join('');
 }
-themeEl.onchange = () => { 
-  updateThemePreview(); 
-  if (data) render(canvas, themeEl.value, true); 
-};
+themeEl.onchange = () => { updateThemePreview(); if (data) render(canvas, themeEl.value, true); };
 updateThemePreview();
 
-// === SLIDERS ===
+// Sliders
 radiusEl.oninput = () => radValEl.textContent = `${Math.round(radiusEl.value / 1609)} mi`;
-roadWeightEl.oninput = () => { 
-  roadWeightValEl.textContent = `${roadWeightEl.value}×`; 
-  if (data) render(canvas, themeEl.value, true); 
-};
+roadWeightEl.oninput = () => { roadWeightValEl.textContent = `${roadWeightEl.value}×`; if (data) render(canvas, themeEl.value, true); };
 
-// === RECENT CITIES ===
+// #3: Recent cities
 function loadRecent() {
   try { recentCities = JSON.parse(localStorage.getItem('recentCities') || '[]'); } catch { recentCities = []; }
   renderRecent();
 }
-
 function saveRecent(city, country, placeData) {
   const entry = { city, country, place: placeData };
   recentCities = recentCities.filter(r => r.city !== city || r.country !== country);
@@ -1035,51 +525,23 @@ function saveRecent(city, country, placeData) {
   localStorage.setItem('recentCities', JSON.stringify(recentCities));
   renderRecent();
 }
-
 function renderRecent() {
-  if (!recentCities.length) { 
-    recentSection.style.display = 'none'; 
-    return; 
-  }
-  recentSection.style.display = 'block';
-  recentEl.innerHTML = recentCities.map((r, i) => {
-    const isInLocalDb = CITIES && CITIES[r.city.toLowerCase().replace(/\s+/g, '-')];
-    return `<span class="recent-chip ${isInLocalDb ? 'cached' : ''}" data-i="${i}">${r.city}</span>`;
-  }).join('');
-  
+  if (!recentCities.length) { recentEl.style.display = 'none'; return; }
+  recentEl.style.display = 'flex';
+  recentEl.innerHTML = recentCities.map((r, i) => `<span class="recent-chip" data-i="${i}">${r.city}</span>`).join('');
   recentEl.querySelectorAll('.recent-chip').forEach(chip => {
     chip.onclick = () => {
       const r = recentCities[chip.dataset.i];
       place = r.place;
-      showSelectedCity(r.city, r.country);
+      selectedEl.textContent = r.city + (r.country ? `, ${r.country}` : '');
+      selectedEl.dataset.city = r.city;
+      selectedEl.dataset.country = r.country;
     };
   });
 }
-
-function showSelectedCity(city, country) {
-  selectedTextEl.textContent = city + (country ? `, ${country}` : '');
-  selectedEl.dataset.city = city;
-  selectedEl.dataset.country = country;
-  selectedEl.classList.add('visible');
-}
-
-clearCityBtn.onclick = () => {
-  place = null;
-  data = null;
-  selectedEl.classList.remove('visible');
-  dlBtn.disabled = true;
-  dlSvgBtn.disabled = true;
-  compareBtn.disabled = true;
-  zoomControls.classList.remove('visible');
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  statusEl.textContent = 'Select a city to get started';
-};
-
 loadRecent();
-</script>
-<script>
-// === SEARCH ===
+
+// Search
 let searchTimer;
 searchEl.oninput = () => {
   clearTimeout(searchTimer);
@@ -1096,7 +558,7 @@ async function doSearch(q) {
   
   if (localResults.length > 0) {
     resultsEl.innerHTML = localResults.map((city, i) => 
-      `<div data-i="${i}" data-local="true">${city.name}, ${city.country}<span class="instant-badge">⚡ INSTANT</span></div>`
+      `<div data-i="${i}" data-local="true">${city.name}, ${city.country}<br><small>⚡ INSTANT</small></div>`
     ).join('');
     resultsEl.classList.add('open');
     resultsEl.querySelectorAll('div').forEach((el, i) => { 
@@ -1111,15 +573,18 @@ async function doSearch(q) {
     const data = await r.json();
     const list = data.features || [];
     
+    // Filter for cities/towns/villages
     const filtered = list.filter(f => {
       const props = f.properties || {};
       const type = props.type?.toLowerCase() || '';
+      // Include places that are cities, towns, villages, etc
       return ['city', 'town', 'village', 'municipality', 'hamlet', 'suburb', 'district', 'borough', 'locality'].includes(type);
     });
     
     resultsEl.innerHTML = filtered.map((f, i) => {
       const props = f.properties || {};
       const name = props.name || '';
+      const city = props.city || props.name || '';
       const state = props.state || '';
       const country = props.country || '';
       const parts = [name, state, country].filter(Boolean);
@@ -1131,15 +596,22 @@ async function doSearch(q) {
 }
 
 function selectLocalCity(city) {
+  // City from local database - already has osm_id for boundary detection
   place = {
     lat: city.lat,
     lon: city.lon,
-    osm_type: 'relation',
+    osm_type: 'relation',  // Local DB cities always have relation IDs
     osm_id: city.osm_id,
     name: city.name,
-    address: { city: city.name, country: city.country }
+    address: {
+      city: city.name,
+      country: city.country
+    }
   };
-  showSelectedCity(city.name, city.country);
+  
+  selectedEl.textContent = `${city.name}, ${city.country}`;
+  selectedEl.dataset.city = city.name;
+  selectedEl.dataset.country = city.country;
   searchEl.value = '';
   resultsEl.innerHTML = '';
   resultsEl.classList.remove('open');
@@ -1148,6 +620,8 @@ function selectLocalCity(city) {
 function selectPhotonPlace(f) {
   const props = f.properties || {};
   const coords = f.geometry?.coordinates || [0, 0];
+  
+  // Create a place object compatible with our existing code
   place = {
     lat: coords[1],
     lon: coords[0],
@@ -1162,18 +636,33 @@ function selectPhotonPlace(f) {
       state: props.state || ''
     }
   };
+  
   const city = props.city || props.name || '';
   const country = props.country || '';
-  showSelectedCity(city, country);
+  selectedEl.textContent = city + (country ? `, ${country}` : '');
+  selectedEl.dataset.city = city;
+  selectedEl.dataset.country = country;
   searchEl.value = '';
   resultsEl.innerHTML = '';
   resultsEl.classList.remove('open');
 }
 
-// === UTILITY FUNCTIONS ===
+function selectPlace(p) {
+  place = p;
+  const addr = p.address || {};
+  const city = addr.city || addr.town || addr.village || addr.municipality || p.name || '';
+  const country = addr.country || '';
+  selectedEl.textContent = city + (country ? `, ${country}` : '');
+  selectedEl.dataset.city = city;
+  selectedEl.dataset.country = country;
+  searchEl.value = '';
+  resultsEl.innerHTML = '';
+  resultsEl.classList.remove('open');
+}
+
 function status(msg, err, loading) {
   statusEl.innerHTML = (loading ? '<span class="spinner"></span>' : '') + msg;
-  statusEl.className = 'status' + (err ? ' error' : '');
+  statusEl.className = 'status' + (err ? ' err' : '');
 }
 
 function setProgress(pct) {
@@ -1182,34 +671,33 @@ function setProgress(pct) {
   progressBar.style.width = pct + '%';
 }
 
-function getSize() {
-  const sizeVal = document.querySelector('input[name="size"]:checked').value;
-  const orientVal = document.querySelector('input[name="orient"]:checked').value;
-  const [w, h] = SIZES[sizeVal][orientVal];
-  return { w, h, orient: orientVal, label: sizeVal };
+function getSize(sizeKey, orientKey) {
+  const s = sizeKey || document.querySelector('[name="size"]:checked').value;
+  const o = orientKey || document.querySelector('[name="orient"]:checked').value;
+  const [w, h] = SIZES[s][o];
+  return { w, h, label: s, orient: o };
 }
 
-// === FETCH DATA ===
-async function fetchWithRetry(url, options, retries = 3) {
-  for (let i = 0; i < retries; i++) {
+async function fetchWithRetry(url, options, retries = 2) {
+  for (let i = 0; i <= retries; i++) {
     try {
       const res = await fetch(url, options);
       if (res.ok) return res;
-      if (res.status === 429 || res.status >= 500) {
-        await new Promise(r => setTimeout(r, (i + 1) * 2000));
-        continue;
-      }
-      throw new Error(`HTTP ${res.status}`);
+      if (i < retries) { status(`Retrying... (${i + 1}/${retries})`, false, true); await new Promise(r => setTimeout(r, 2000)); }
     } catch (e) {
-      if (i === retries - 1) throw e;
-      await new Promise(r => setTimeout(r, (i + 1) * 2000));
+      if (i === retries) throw e;
+      status(`Connection error, retrying... (${i + 1}/${retries})`, false, true);
+      await new Promise(r => setTimeout(r, 2000));
     }
   }
+  throw new Error('Failed after retries');
 }
 
 async function fetchData(areaId, lat, lon, radius, onProgress) {
   const types = ROAD_TYPES.join('|');
-  const useArea = !!areaId;
+  const useArea = areaId !== null;
+  
+  onProgress?.(10);
   const streetQ = useArea
     ? `[out:json][timeout:180];area(${areaId})->.a;way(area.a)["highway"~"^(${types})$"];out geom;`
     : `[out:json][timeout:180];way["highway"~"^(${types})$"](around:${radius},${lat},${lon});out geom;`;
@@ -1254,13 +742,11 @@ function calcBounds(streets, water) {
 }
 
 function getDisplayNames() {
-  const city = customCityEl.value.trim() || data?.city || '';
-  const country = customCountryEl.value.trim() || data?.country || '';
+  const city = customCityEl.value.trim() || data.city;
+  const country = customCountryEl.value.trim() || data.country;
   return { city, country };
 }
-</script>
-<script>
-// === RENDER ===
+
 function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride) {
   const size = sizeOverride || getSize();
   const { w: fullW, h: fullH, orient } = size;
@@ -1275,6 +761,7 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride) {
   cvs.width = w; cvs.height = h;
   const ctx = cvs.getContext('2d');
   
+  // Apply zoom/pan for preview
   if (isPreview && (zoom !== 1 || panX !== 0 || panY !== 0)) {
     ctx.translate(w/2 + panX, h/2 + panY);
     ctx.scale(zoom, zoom);
@@ -1349,16 +836,19 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride) {
     });
   });
   
+  // Reset transform for UI elements
   if (isPreview && (zoom !== 1 || panX !== 0 || panY !== 0)) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
   
+  // Helper to convert 3-char hex to 6-char hex
   const expandHex = (hex) => {
     if (hex.length === 4) return '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
     return hex;
   };
   const bgColor = expandHex(theme.bg);
   
+  // Fades (only for final render, skip for zoomed preview)
   if (!isPreview || zoom === 1) {
     const fadeH = h * 0.08;
     let grad = ctx.createLinearGradient(0, 0, 0, fadeH);
@@ -1413,111 +903,7 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride) {
   }
 }
 
-// === PAN/ZOOM ===
-let isPanning = false, lastX, lastY;
-canvas.onmousedown = e => { if (!data) return; isPanning = true; lastX = e.clientX; lastY = e.clientY; canvas.style.cursor = 'grabbing'; };
-canvas.onmousemove = e => {
-  if (!isPanning) return;
-  panX += (e.clientX - lastX); panY += (e.clientY - lastY);
-  lastX = e.clientX; lastY = e.clientY;
-  render(canvas, themeEl.value, true);
-};
-canvas.onmouseup = () => { isPanning = false; canvas.style.cursor = 'grab'; };
-canvas.onmouseleave = () => { isPanning = false; canvas.style.cursor = 'grab'; };
-canvas.onwheel = e => {
-  if (!data) return;
-  e.preventDefault();
-  const delta = e.deltaY > 0 ? 0.9 : 1.1;
-  zoom = Math.max(0.5, Math.min(5, zoom * delta));
-  zoomLevel.textContent = Math.round(zoom * 100) + '%';
-  render(canvas, themeEl.value, true);
-};
-zoomIn.onclick = () => { zoom = Math.min(5, zoom * 1.2); zoomLevel.textContent = Math.round(zoom * 100) + '%'; render(canvas, themeEl.value, true); };
-zoomOut.onclick = () => { zoom = Math.max(0.5, zoom / 1.2); zoomLevel.textContent = Math.round(zoom * 100) + '%'; render(canvas, themeEl.value, true); };
-zoomReset.onclick = () => { zoom = 1; panX = 0; panY = 0; zoomLevel.textContent = '100%'; render(canvas, themeEl.value, true); };
-</script>
-<script>
-// === GENERATE ===
-genBtn.onclick = async () => {
-  if (!place) { status('Select a city first', true); return; }
-  
-  genBtn.disabled = true;
-  dlBtn.disabled = true;
-  dlSvgBtn.disabled = true;
-  compareBtn.disabled = true;
-  zoom = 1; panX = 0; panY = 0;
-  
-  try {
-    const lat = parseFloat(place.lat), lon = parseFloat(place.lon);
-    const useArea = place.osm_type === 'relation';
-    const areaId = useArea ? 3600000000 + parseInt(place.osm_id) : null;
-    
-    status(useArea ? 'Loading city boundary...' : `Loading ${Math.round(radiusEl.value/1609)}mi radius...`, false, true);
-    
-    const { streets, water } = await fetchData(areaId, lat, lon, parseInt(radiusEl.value), setProgress);
-    
-    if (!streets.elements?.length) throw new Error('No street data found. Try a different city or increase radius.');
-    
-    const bounds = calcBounds(streets, water);
-    const detectedCity = selectedEl.dataset.city;
-    const detectedCountry = selectedEl.dataset.country;
-    
-    data = { city: detectedCity, country: detectedCountry, lat, lon, streets, water, bounds };
-    
-    saveRecent(detectedCity, detectedCountry, place);
-    
-    setProgress(95);
-    status('Rendering...', false, true);
-    render(canvas, themeEl.value, true);
-    
-    setProgress(null);
-    zoomControls.classList.add('visible');
-    status(`${streets.elements.length.toLocaleString()} roads` + (water.elements?.length ? `, ${water.elements.length.toLocaleString()} water features` : ''));
-    dlBtn.disabled = false;
-    dlSvgBtn.disabled = false;
-    compareBtn.disabled = false;
-  } catch (e) {
-    status(e.message, true);
-    setProgress(null);
-    console.error(e);
-  } finally {
-    genBtn.disabled = false;
-  }
-};
-
-// === DOWNLOADS ===
-dlBtn.onclick = () => {
-  if (!data) return;
-  status('Rendering full resolution...', false, true);
-  const savedZoom = zoom, savedPanX = panX, savedPanY = panY;
-  zoom = 1; panX = 0; panY = 0;
-  render(offscreen, themeEl.value, false);
-  zoom = savedZoom; panX = savedPanX; panY = savedPanY;
-  
-  const a = document.createElement('a');
-  const { label, orient } = getSize();
-  const { city } = getDisplayNames();
-  a.download = `${city.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${label}-${orient}-${themeEl.value}.png`;
-  a.href = offscreen.toDataURL('image/png');
-  a.click();
-  status('Downloaded PNG!');
-};
-
-dlSvgBtn.onclick = () => {
-  if (!data) return;
-  status('Generating SVG...', false, true);
-  const svg = renderSvg(themeEl.value);
-  const blob = new Blob([svg], { type: 'image/svg+xml' });
-  const a = document.createElement('a');
-  const { label, orient } = getSize();
-  const { city } = getDisplayNames();
-  a.download = `${city.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${label}-${orient}-${themeEl.value}.svg`;
-  a.href = URL.createObjectURL(blob);
-  a.click();
-  status('Downloaded SVG!');
-};
-
-// === SVG EXPORT ===
+// #7: SVG Export
 function renderSvg(themeKey) {
   const size = getSize();
   const { w, h, orient } = size;
@@ -1554,6 +940,7 @@ function renderSvg(themeKey) {
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`;
   svg += `<rect width="${w}" height="${h}" fill="${theme.bg}"/>`;
   
+  // Water
   if (waterEl.checked && data.water?.elements) {
     svg += `<g fill="${theme.water}" stroke="${theme.water}" stroke-width="${1.5 * roadWeight}">`;
     data.water.elements.forEach(el => {
@@ -1566,6 +953,7 @@ function renderSvg(themeKey) {
     svg += '</g>';
   }
   
+  // Roads
   const groups = { motorway: [], primary: [], secondary: [], tertiary: [], residential: [] };
   (data.streets.elements || []).forEach(el => {
     if (el.type !== 'way' || !el.geometry) return;
@@ -1590,6 +978,7 @@ function renderSvg(themeKey) {
     svg += '</g>';
   });
   
+  // Text
   const textY = mapTop + mapH + margin * (isLandscape ? 0.6 : 0.8);
   const citySize = isLandscape ? 40 : 48;
   const cityUpper = city.toUpperCase();
@@ -1611,10 +1000,115 @@ function renderSvg(themeKey) {
   return svg;
 }
 
-// === COMPARE MODAL ===
-compareBtn.onclick = () => {
+// #6: Pan/Zoom
+let isPanning = false, lastX, lastY;
+canvas.onmousedown = e => { if (!data) return; isPanning = true; lastX = e.clientX; lastY = e.clientY; };
+canvas.onmousemove = e => {
+  if (!isPanning) return;
+  panX += (e.clientX - lastX); panY += (e.clientY - lastY);
+  lastX = e.clientX; lastY = e.clientY;
+  render(canvas, themeEl.value, true);
+};
+canvas.onmouseup = () => isPanning = false;
+canvas.onmouseleave = () => isPanning = false;
+canvas.onwheel = e => {
   if (!data) return;
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  zoom = Math.max(0.5, Math.min(5, zoom * delta));
+  zoomLevel.textContent = Math.round(zoom * 100) + '%';
+  render(canvas, themeEl.value, true);
+};
+zoomIn.onclick = () => { zoom = Math.min(5, zoom * 1.2); zoomLevel.textContent = Math.round(zoom * 100) + '%'; render(canvas, themeEl.value, true); };
+zoomOut.onclick = () => { zoom = Math.max(0.5, zoom / 1.2); zoomLevel.textContent = Math.round(zoom * 100) + '%'; render(canvas, themeEl.value, true); };
+zoomReset.onclick = () => { zoom = 1; panX = 0; panY = 0; zoomLevel.textContent = '100%'; render(canvas, themeEl.value, true); };
+
+// Generate
+genBtn.onclick = async () => {
+  if (!place) { status('Select a city first', true); return; }
+  
+  genBtn.disabled = true;
+  dlBtn.disabled = true;
+  dlSvgBtn.disabled = true;
+  compareBtn.disabled = true;
+  zoom = 1; panX = 0; panY = 0;
+  
+  try {
+    const lat = parseFloat(place.lat), lon = parseFloat(place.lon);
+    const useArea = place.osm_type === 'relation';
+    const areaId = useArea ? 3600000000 + parseInt(place.osm_id) : null;
+    
+    status(useArea ? 'Loading city boundary...' : `Loading ${Math.round(radiusEl.value/1609)}mi radius...`, false, true);
+    
+    const { streets, water } = await fetchData(areaId, lat, lon, parseInt(radiusEl.value), setProgress);
+    
+    if (!streets.elements?.length) throw new Error('No street data found. Try a different city or increase radius.');
+    
+    const bounds = calcBounds(streets, water);
+    const detectedCity = selectedEl.dataset.city;
+    const detectedCountry = selectedEl.dataset.country;
+    
+    data = { city: detectedCity, country: detectedCountry, lat, lon, streets, water, bounds };
+    
+    saveRecent(detectedCity, detectedCountry, place);
+    
+    setProgress(95);
+    status('Rendering...', false, true);
+    render(canvas, themeEl.value, true);
+    
+    setProgress(null);
+    zoomControls.style.display = 'flex';
+    status(`${streets.elements.length.toLocaleString()} roads` + (water.elements?.length ? `, ${water.elements.length.toLocaleString()} water features` : ''));
+    dlBtn.disabled = false;
+    dlSvgBtn.disabled = false;
+    compareBtn.disabled = false;
+  } catch (e) {
+    status(e.message, true);
+    setProgress(null);
+    console.error(e);
+  } finally {
+    genBtn.disabled = false;
+  }
+};
+
+// Downloads
+dlBtn.onclick = () => {
+  if (!data) return;
+  status('Rendering full resolution...', false, true);
+  // Reset zoom for final render
+  const savedZoom = zoom, savedPanX = panX, savedPanY = panY;
+  zoom = 1; panX = 0; panY = 0;
+  render(offscreen, themeEl.value, false);
+  zoom = savedZoom; panX = savedPanX; panY = savedPanY;
+  
+  const a = document.createElement('a');
+  const { label, orient } = getSize();
+  const { city } = getDisplayNames();
+  a.download = `${city.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${label}-${orient}-${themeEl.value}.png`;
+  a.href = offscreen.toDataURL('image/png');
+  a.click();
+  status('Downloaded PNG!');
+};
+
+dlSvgBtn.onclick = () => {
+  if (!data) return;
+  const svg = renderSvg(themeEl.value);
+  const blob = new Blob([svg], { type: 'image/svg+xml' });
+  const a = document.createElement('a');
+  const { label, orient } = getSize();
+  const { city } = getDisplayNames();
+  a.download = `${city.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${label}-${orient}-${themeEl.value}.svg`;
+  a.href = URL.createObjectURL(blob);
+  a.click();
+  status('Downloaded SVG!');
+};
+
+// Compare modal
+compareBtn.onclick = () => {
+  console.log('Compare clicked, data:', data);
+  if (!data) { console.log('No data, returning'); return; }
   themeGrid.innerHTML = '';
+  // Temporarily reset zoom for compare renders
   const savedZoom = zoom, savedPanX = panX, savedPanY = panY;
   zoom = 1; panX = 0; panY = 0;
   Object.entries(THEMES).forEach(([key, theme]) => {
@@ -1634,16 +1128,15 @@ compareBtn.onclick = () => {
 };
 modalClose.onclick = () => modal.classList.remove('open');
 modal.onclick = e => { if (e.target === modal) modal.classList.remove('open'); };
-</script>
-<script>
-// === BATCH MODE ===
+
+// #2: Batch mode
 batchBtn.onclick = () => { batchModal.classList.add('open'); batchLog.innerHTML = ''; batchStatus.textContent = ''; batchProgress.classList.remove('active'); };
 batchClose.onclick = () => batchModal.classList.remove('open');
 batchModal.onclick = e => { if (e.target === batchModal) batchModal.classList.remove('open'); };
 
 batchStart.onclick = async () => {
-  const lines = batchInput.value.trim().split('\n').map(l => l.trim()).filter(Boolean);
-  if (!lines.length) return;
+  const lines = batchInput.value.trim().split('\n').map(l => l.trim()).filter(l => l);
+  if (!lines.length) { batchStatus.textContent = 'Enter at least one city'; return; }
   
   const [sizeKey, orientKey] = batchSize.value.split('-');
   const themeKey = batchTheme.value;
@@ -1675,9 +1168,10 @@ batchStart.onclick = async () => {
         lon = city.lon;
         useArea = true;
         areaId = 3600000000 + city.osm_id;
-        batchLog.innerHTML += `<div style="color:var(--text3)">⚡ Found in local database</div>`;
+        batchLog.innerHTML += `<div style="color:#888">⚡ Found in local database</div>`;
       } else {
-        batchLog.innerHTML += `<div style="color:var(--text3)">🌐 Searching online...</div>`;
+        // Fallback to Photon API
+        batchLog.innerHTML += `<div style="color:#888">🌐 Searching online...</div>`;
         const searchRes = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(line)}&limit=10`);
         const searchJson = await searchRes.json();
         const searchData = searchJson.features || [];
@@ -1727,7 +1221,7 @@ batchStart.onclick = async () => {
       data = { city: cityName, country: countryName, lat, lon, streets, water, bounds };
       
       // Render
-      const size = { w: SIZES[sizeKey][orientKey][0], h: SIZES[sizeKey][orientKey][1], orient: orientKey, label: sizeKey };
+      const size = getSize(sizeKey, orientKey);
       render(offscreen, themeKey, false, null, size);
       
       results.push({
@@ -1737,6 +1231,7 @@ batchStart.onclick = async () => {
       
       batchLog.innerHTML += `<div style="color:#6c6">✓ ${cityName} done</div>`;
       
+      // Rate limit delay
       if (i < lines.length - 1) await new Promise(r => setTimeout(r, 2000));
       
     } catch (e) {
@@ -1748,6 +1243,7 @@ batchStart.onclick = async () => {
   batchStatus.textContent = `Done! ${results.length}/${lines.length} successful`;
   batchStart.disabled = false;
   
+  // Download all
   if (results.length) {
     batchLog.innerHTML += `<div style="margin-top:8px;">Downloading ${results.length} files...</div>`;
     for (const r of results) {
@@ -1760,44 +1256,15 @@ batchStart.onclick = async () => {
   }
 };
 
-// === KEYBOARD SHORTCUTS ===
-document.onkeydown = e => { 
-  if (e.key === 'Escape') { 
-    modal.classList.remove('open'); 
-    batchModal.classList.remove('open'); 
-  } 
-};
+document.onkeydown = e => { if (e.key === 'Escape') { modal.classList.remove('open'); batchModal.classList.remove('open'); } };
 
-// === RE-RENDER ON OPTION CHANGES ===
-customCityEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
-customCountryEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
+// Re-render on option changes
+document.querySelectorAll('[name="size"], [name="orient"]').forEach(el => { el.onchange = () => { if (data) render(canvas, themeEl.value, true); }; });
 waterEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
 showCoordsEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
-
-// === LOAD AUSTIN BY DEFAULT ===
-async function loadDefaultCity() {
-  const austin = CITIES['austin'];
-  if (!austin) return;
-  
-  place = {
-    lat: austin.lat,
-    lon: austin.lon,
-    osm_type: 'relation',
-    osm_id: austin.osm_id,
-    name: austin.name,
-    address: { city: austin.name, country: austin.country }
-  };
-  
-  showSelectedCity(austin.name, austin.country);
-  
-  // Auto-generate
-  genBtn.click();
-}
-
-// Load Austin on page load
-window.addEventListener('load', () => {
-  setTimeout(loadDefaultCity, 100);
-});
+fontStyleEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
+customCityEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
+customCountryEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
 </script>
 </body>
 </html>
