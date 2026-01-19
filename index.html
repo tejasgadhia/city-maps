@@ -111,9 +111,9 @@
     .results small { color: var(--text3); font-size: 10px; }
     .selected { color: var(--accent); font-size: 13px; min-height: 18px; margin: -4px 0 4px; }
     
-    /* Animated Pill Toggle */
+    /* Animated Pill Toggle - 50/50 split */
     .pill-toggle {
-      display: inline-flex;
+      display: flex;
       background: var(--bg3);
       border-radius: 10px;
       padding: 4px;
@@ -123,8 +123,10 @@
     }
     .pill-toggle input { display: none; }
     .pill-toggle label {
+      flex: 1;
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
       padding: 10px 16px;
       border-radius: 8px;
@@ -143,12 +145,14 @@
       position: absolute;
       top: 4px;
       left: 4px;
+      width: calc(50% - 4px);
       height: calc(100% - 8px);
       background: var(--accent);
       border-radius: 8px;
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       z-index: 0;
     }
+    .pill-toggle.right .pill-slider { transform: translateX(100%); }
     
     .theme-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
     .theme-preview {
@@ -176,7 +180,8 @@
     .btn-secondary { background: var(--bg2); color: var(--text2); border: 1px solid var(--border); }
     .btn-secondary:hover:not(:disabled) { background: var(--bg3); }
     .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
-    .status { font-size: 12px; color: var(--text2); min-height: 16px; }
+    .status { font-size: 13px; color: var(--text2); min-height: 20px; padding: 8px 0; }
+    .status.loading { color: var(--accent); font-weight: 500; }
     .status.err { color: #e55; }
     .preview-area { display: flex; flex-direction: column; align-items: center; gap: 12px; }
     #preview { max-width: 100%; max-height: 70vh; border: 1px solid var(--border); background: #000; cursor: grab; }
@@ -227,10 +232,11 @@
     }
     .recent-chip:hover { border-color: var(--accent); color: var(--accent); }
     
-    /* Progress bar */
-    .progress { width: 100%; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; margin-top: 4px; display: none; }
+    /* Progress bar - prominent */
+    .progress { width: 100%; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin-top: 8px; display: none; }
     .progress.active { display: block; }
-    .progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), #6ab0ff); width: 0%; transition: width 0.3s; animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
     
     /* Zoom controls */
     .zoom-controls { display: flex; gap: 8px; align-items: center; }
@@ -543,30 +549,23 @@ const zoomControls = $('zoomControls'), zoomIn = $('zoomIn'), zoomOut = $('zoomO
 const advancedCollapsible = $('advancedCollapsible');
 const orientToggle = $('orientToggle'), sizeToggle = $('sizeToggle');
 
-// Animated Pill Toggle
+// Simple 50-50 Pill Toggle
 function initPillToggle(toggle) {
   if (!toggle) return;
-  const slider = toggle.querySelector('.pill-slider');
   const inputs = toggle.querySelectorAll('input');
   
   function updateSlider() {
-    const checked = toggle.querySelector('input:checked');
-    if (!checked || !slider) return;
-    const label = checked.nextElementSibling;
-    const toggleRect = toggle.getBoundingClientRect();
-    const labelRect = label.getBoundingClientRect();
-    slider.style.width = labelRect.width + 'px';
-    slider.style.transform = `translateX(${labelRect.left - toggleRect.left - 4}px)`;
+    const secondInput = inputs[1];
+    toggle.classList.toggle('right', secondInput.checked);
   }
   
-  setTimeout(updateSlider, 0);
+  updateSlider();
   inputs.forEach(input => {
     input.addEventListener('change', () => {
       updateSlider();
       if (data) render(canvas, themeEl.value, true);
     });
   });
-  window.addEventListener('resize', updateSlider);
 }
 initPillToggle(orientToggle);
 initPillToggle(sizeToggle);
@@ -749,7 +748,7 @@ function selectPlace(p) {
 
 function status(msg, err, loading) {
   statusEl.innerHTML = (loading ? '<span class="spinner"></span>' : '') + msg;
-  statusEl.className = 'status' + (err ? ' err' : '');
+  statusEl.className = 'status' + (err ? ' err' : '') + (loading ? ' loading' : '');
 }
 
 function setProgress(pct) {
@@ -1352,6 +1351,26 @@ showCoordsEl.onchange = () => { if (data) render(canvas, themeEl.value, true); }
 fontStyleEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
 customCityEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
 customCountryEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
+
+// Auto-load Austin on page load
+window.addEventListener('load', () => {
+  const austin = CITIES && CITIES['austin'];
+  if (austin) {
+    place = {
+      lat: austin.lat,
+      lon: austin.lon,
+      osm_type: 'relation',
+      osm_id: austin.osm_id,
+      name: austin.name,
+      address: { city: austin.name, country: austin.country }
+    };
+    selectedEl.textContent = `${austin.name}, ${austin.country}`;
+    selectedEl.dataset.city = austin.name;
+    selectedEl.dataset.country = austin.country;
+    // Auto-generate after a short delay
+    setTimeout(() => genBtn.click(), 200);
+  }
+});
 </script>
 </body>
 </html>
