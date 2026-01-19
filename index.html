@@ -110,8 +110,46 @@
     .results div:hover { background: var(--bg3); }
     .results small { color: var(--text3); font-size: 10px; }
     .selected { color: var(--accent); font-size: 13px; min-height: 18px; margin: -4px 0 4px; }
-    .radio-group { display: flex; gap: 12px; margin-top: 4px; flex-wrap: wrap; }
-    .radio-group label { display: flex; align-items: center; font-size: 13px; text-transform: none; color: var(--text); cursor: pointer; }
+    
+    /* Animated Pill Toggle */
+    .pill-toggle {
+      display: inline-flex;
+      background: var(--bg3);
+      border-radius: 10px;
+      padding: 4px;
+      position: relative;
+      border: 1px solid var(--border);
+      margin-top: 6px;
+    }
+    .pill-toggle input { display: none; }
+    .pill-toggle label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text2);
+      transition: color 0.3s;
+      position: relative;
+      z-index: 1;
+      text-transform: none;
+      letter-spacing: normal;
+    }
+    .pill-toggle label svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .pill-toggle input:checked + label { color: #fff; }
+    .pill-slider {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      height: calc(100% - 8px);
+      background: var(--accent);
+      border-radius: 8px;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 0;
+    }
+    
     .theme-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
     .theme-preview {
       width: 60px;
@@ -361,19 +399,39 @@
 
     <div class="divider"></div>
 
-    <label>Orientation
-      <div class="radio-group">
-        <label><input type="radio" name="orient" value="portrait" checked> Portrait</label>
-        <label><input type="radio" name="orient" value="landscape"> Landscape</label>
-      </div>
-    </label>
+    <label>Orientation</label>
+    <div class="pill-toggle" id="orientToggle">
+      <div class="pill-slider"></div>
+      <input type="radio" name="orient" id="orientPortrait" value="portrait" checked>
+      <label for="orientPortrait">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="2"/></svg>
+        Portrait
+      </label>
+      <input type="radio" name="orient" id="orientLandscape" value="landscape">
+      <label for="orientLandscape">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/></svg>
+        Landscape
+      </label>
+    </div>
 
-    <label>Size
-      <div class="radio-group">
-        <label><input type="radio" name="size" value="5x7" checked> 5×7"</label>
-        <label><input type="radio" name="size" value="8x10"> 8×10"</label>
-      </div>
-    </label>
+    <label>Size</label>
+    <div class="pill-toggle" id="sizeToggle">
+      <div class="pill-slider"></div>
+      <input type="radio" name="size" id="size5x7" value="5x7" checked>
+      <label for="size5x7">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="7" y="5" width="10" height="14" rx="1" stroke-dasharray="2 1"/>
+        </svg>
+        5×7"
+      </label>
+      <input type="radio" name="size" id="size8x10" value="8x10">
+      <label for="size8x10">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="4" y="2" width="16" height="20" rx="1"/>
+        </svg>
+        8×10"
+      </label>
+    </div>
 
     <div class="divider"></div>
 
