@@ -553,7 +553,7 @@ document.onclick = e => { if (!e.target.closest('.search-box')) resultsEl.classL
 
 async function doSearch(q) {
   try {
-    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=10&addressdetails=1`, { headers: { 'User-Agent': 'MapToPoster/1.0' } });
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&limit=10&addressdetails=1`);
     const list = await r.json();
     // Filter for actual cities/towns/villages - prioritize but don't exclude all
     const filtered = list.filter(p => {
@@ -1076,7 +1076,7 @@ batchStart.onclick = async () => {
     
     try {
       // Search for city
-      const searchRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(line)}&format=json&limit=10&addressdetails=1`, { headers: { 'User-Agent': 'MapToPoster/1.0' } });
+      const searchRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(line)}&format=jsonv2&limit=10&addressdetails=1`);
       const searchData = await searchRes.json();
       // Filter for actual cities/towns/villages - prioritize but don't exclude all
       const filtered = searchData.filter(p => {
