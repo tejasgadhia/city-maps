@@ -555,11 +555,18 @@ async function doSearch(q) {
   try {
     const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=10&addressdetails=1`, { headers: { 'User-Agent': 'MapToPoster/1.0' } });
     const list = await r.json();
-    // Filter for actual cities/towns/villages only
+    // Filter for actual cities/towns/villages - prioritize but don't exclude all
     const filtered = list.filter(p => {
       const type = p.type?.toLowerCase() || '';
       const placeType = p.class?.toLowerCase() || '';
-      return placeType === 'place' && ['city', 'town', 'village', 'municipality'].includes(type);
+      // Exclude administrative boundaries that aren't cities
+      if (placeType === 'boundary' && type === 'administrative') {
+        return p.address?.city || p.address?.town || p.address?.village;
+      }
+      // Include all place types (city, town, village, etc)
+      if (placeType === 'place') return true;
+      // Include anything with a city-type address
+      return p.address?.city || p.address?.town || p.address?.village;
     });
     resultsEl.innerHTML = filtered.map((p, i) => `<div data-i="${i}">${p.display_name}<br><small>${p.type.toUpperCase()}</small></div>`).join('');
     resultsEl.classList.toggle('open', filtered.length > 0);
@@ -1071,11 +1078,18 @@ batchStart.onclick = async () => {
       // Search for city
       const searchRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(line)}&format=json&limit=10&addressdetails=1`, { headers: { 'User-Agent': 'MapToPoster/1.0' } });
       const searchData = await searchRes.json();
-      // Filter for actual cities/towns/villages
+      // Filter for actual cities/towns/villages - prioritize but don't exclude all
       const filtered = searchData.filter(p => {
         const type = p.type?.toLowerCase() || '';
         const placeType = p.class?.toLowerCase() || '';
-        return placeType === 'place' && ['city', 'town', 'village', 'municipality'].includes(type);
+        // Exclude administrative boundaries that aren't cities
+        if (placeType === 'boundary' && type === 'administrative') {
+          return p.address?.city || p.address?.town || p.address?.village;
+        }
+        // Include all place types (city, town, village, etc)
+        if (placeType === 'place') return true;
+        // Include anything with a city-type address
+        return p.address?.city || p.address?.town || p.address?.village;
       });
       if (!filtered.length) throw new Error('No cities found');
       
