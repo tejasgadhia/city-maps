@@ -553,25 +553,61 @@ document.onclick = e => { if (!e.target.closest('.search-box')) resultsEl.classL
 
 async function doSearch(q) {
   try {
-    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&limit=10&addressdetails=1`);
-    const list = await r.json();
-    // Filter for actual cities/towns/villages - prioritize but don't exclude all
-    const filtered = list.filter(p => {
-      const type = p.type?.toLowerCase() || '';
-      const placeType = p.class?.toLowerCase() || '';
-      // Exclude administrative boundaries that aren't cities
-      if (placeType === 'boundary' && type === 'administrative') {
-        return p.address?.city || p.address?.town || p.address?.village;
-      }
-      // Include all place types (city, town, village, etc)
-      if (placeType === 'place') return true;
-      // Include anything with a city-type address
-      return p.address?.city || p.address?.town || p.address?.village;
+    // Use Photon API (Komoot) - better CORS support than Nominatim
+    const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=10`);
+    const data = await r.json();
+    const list = data.features || [];
+    
+    // Filter for cities/towns/villages
+    const filtered = list.filter(f => {
+      const props = f.properties || {};
+      const type = props.type?.toLowerCase() || '';
+      // Include places that are cities, towns, villages, etc
+      return ['city', 'town', 'village', 'municipality', 'hamlet', 'suburb', 'district', 'borough', 'locality'].includes(type);
     });
-    resultsEl.innerHTML = filtered.map((p, i) => `<div data-i="${i}">${p.display_name}<br><small>${p.type.toUpperCase()}</small></div>`).join('');
+    
+    resultsEl.innerHTML = filtered.map((f, i) => {
+      const props = f.properties || {};
+      const name = props.name || '';
+      const city = props.city || props.name || '';
+      const state = props.state || '';
+      const country = props.country || '';
+      const parts = [name, state, country].filter(Boolean);
+      return `<div data-i="${i}">${parts.join(', ')}<br><small>${(props.type || '').toUpperCase()}</small></div>`;
+    }).join('');
     resultsEl.classList.toggle('open', filtered.length > 0);
-    resultsEl.querySelectorAll('div').forEach((el, i) => { el.onclick = () => selectPlace(filtered[i]); });
+    resultsEl.querySelectorAll('div').forEach((el, i) => { el.onclick = () => selectPhotonPlace(filtered[i]); });
   } catch (e) { console.error(e); }
+}
+
+function selectPhotonPlace(f) {
+  const props = f.properties || {};
+  const coords = f.geometry?.coordinates || [0, 0];
+  
+  // Create a place object compatible with our existing code
+  place = {
+    lat: coords[1],
+    lon: coords[0],
+    osm_type: props.osm_type || 'node',
+    osm_id: props.osm_id || 0,
+    name: props.name || '',
+    address: {
+      city: props.city || props.name || '',
+      town: props.town,
+      village: props.village,
+      country: props.country || '',
+      state: props.state || ''
+    }
+  };
+  
+  const city = props.city || props.name || '';
+  const country = props.country || '';
+  selectedEl.textContent = city + (country ? `, ${country}` : '');
+  selectedEl.dataset.city = city;
+  selectedEl.dataset.country = country;
+  searchEl.value = '';
+  resultsEl.innerHTML = '';
+  resultsEl.classList.remove('open');
 }
 
 function selectPlace(p) {
@@ -1075,31 +1111,27 @@ batchStart.onclick = async () => {
     batchLog.scrollTop = batchLog.scrollHeight;
     
     try {
-      // Search for city
-      const searchRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(line)}&format=jsonv2&limit=10&addressdetails=1`);
-      const searchData = await searchRes.json();
-      // Filter for actual cities/towns/villages - prioritize but don't exclude all
-      const filtered = searchData.filter(p => {
-        const type = p.type?.toLowerCase() || '';
-        const placeType = p.class?.toLowerCase() || '';
-        // Exclude administrative boundaries that aren't cities
-        if (placeType === 'boundary' && type === 'administrative') {
-          return p.address?.city || p.address?.town || p.address?.village;
-        }
-        // Include all place types (city, town, village, etc)
-        if (placeType === 'place') return true;
-        // Include anything with a city-type address
-        return p.address?.city || p.address?.town || p.address?.village;
+      // Search for city using Photon API (better CORS support)
+      const searchRes = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(line)}&limit=10`);
+      const searchJson = await searchRes.json();
+      const searchData = searchJson.features || [];
+      
+      // Filter for cities/towns/villages
+      const filtered = searchData.filter(f => {
+        const props = f.properties || {};
+        const type = props.type?.toLowerCase() || '';
+        return ['city', 'town', 'village', 'municipality', 'hamlet', 'suburb', 'district', 'borough', 'locality'].includes(type);
       });
       if (!filtered.length) throw new Error('No cities found');
       
-      const p = filtered[0];
-      const addr = p.address || {};
-      const cityName = addr.city || addr.town || addr.village || addr.municipality || p.name || line.split(',')[0];
-      const countryName = addr.country || '';
-      const lat = parseFloat(p.lat), lon = parseFloat(p.lon);
-      const useArea = p.osm_type === 'relation';
-      const areaId = useArea ? 3600000000 + parseInt(p.osm_id) : null;
+      const f = filtered[0];
+      const props = f.properties || {};
+      const coords = f.geometry?.coordinates || [0, 0];
+      const cityName = props.city || props.name || line.split(',')[0];
+      const countryName = props.country || '';
+      const lat = coords[1], lon = coords[0];
+      const useArea = props.osm_type === 'relation';
+      const areaId = useArea ? 3600000000 + parseInt(props.osm_id) : null;
       
       // Fetch data
       const types = ROAD_TYPES.join('|');
