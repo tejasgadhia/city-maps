@@ -441,6 +441,7 @@
 
 <canvas id="offscreen"></canvas>
 
+<script src="cities.js"></script>
 <script>
 const THEMES = {
   noir: { name: "Noir", desc: "Classic dark", bg: "#0a0a0a", text: "#fff", water: "#151520", roads: ["#fff","#ccc","#999","#666","#444"] },
@@ -552,8 +553,22 @@ searchEl.onfocus = () => { if (resultsEl.children.length) resultsEl.classList.ad
 document.onclick = e => { if (!e.target.closest('.search-box')) resultsEl.classList.remove('open'); };
 
 async function doSearch(q) {
+  // First, search local database (instant, no network)
+  const localResults = searchCities(q);
+  
+  if (localResults.length > 0) {
+    resultsEl.innerHTML = localResults.map((city, i) => 
+      `<div data-i="${i}" data-local="true">${city.name}, ${city.country}<br><small>⚡ INSTANT</small></div>`
+    ).join('');
+    resultsEl.classList.add('open');
+    resultsEl.querySelectorAll('div').forEach((el, i) => { 
+      el.onclick = () => selectLocalCity(localResults[i]); 
+    });
+    return;
+  }
+  
+  // Fallback to Photon API for cities not in database
   try {
-    // Use Photon API (Komoot) - better CORS support than Nominatim
     const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=10`);
     const data = await r.json();
     const list = data.features || [];
@@ -578,6 +593,28 @@ async function doSearch(q) {
     resultsEl.classList.toggle('open', filtered.length > 0);
     resultsEl.querySelectorAll('div').forEach((el, i) => { el.onclick = () => selectPhotonPlace(filtered[i]); });
   } catch (e) { console.error(e); }
+}
+
+function selectLocalCity(city) {
+  // City from local database - already has osm_id for boundary detection
+  place = {
+    lat: city.lat,
+    lon: city.lon,
+    osm_type: 'relation',  // Local DB cities always have relation IDs
+    osm_id: city.osm_id,
+    name: city.name,
+    address: {
+      city: city.name,
+      country: city.country
+    }
+  };
+  
+  selectedEl.textContent = `${city.name}, ${city.country}`;
+  selectedEl.dataset.city = city.name;
+  selectedEl.dataset.country = city.country;
+  searchEl.value = '';
+  resultsEl.innerHTML = '';
+  resultsEl.classList.remove('open');
 }
 
 function selectPhotonPlace(f) {
@@ -1119,27 +1156,43 @@ batchStart.onclick = async () => {
     batchLog.scrollTop = batchLog.scrollHeight;
     
     try {
-      // Search for city using Photon API (better CORS support)
-      const searchRes = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(line)}&limit=10`);
-      const searchJson = await searchRes.json();
-      const searchData = searchJson.features || [];
+      // First try local database (instant)
+      const localResults = searchCities(line);
+      let cityName, countryName, lat, lon, useArea, areaId;
       
-      // Filter for cities/towns/villages
-      const filtered = searchData.filter(f => {
+      if (localResults.length > 0) {
+        const city = localResults[0];
+        cityName = city.name;
+        countryName = city.country;
+        lat = city.lat;
+        lon = city.lon;
+        useArea = true;
+        areaId = 3600000000 + city.osm_id;
+        batchLog.innerHTML += `<div style="color:#888">⚡ Found in local database</div>`;
+      } else {
+        // Fallback to Photon API
+        batchLog.innerHTML += `<div style="color:#888">🌐 Searching online...</div>`;
+        const searchRes = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(line)}&limit=10`);
+        const searchJson = await searchRes.json();
+        const searchData = searchJson.features || [];
+        
+        const filtered = searchData.filter(f => {
+          const props = f.properties || {};
+          const type = props.type?.toLowerCase() || '';
+          return ['city', 'town', 'village', 'municipality', 'hamlet', 'suburb', 'district', 'borough', 'locality'].includes(type);
+        });
+        if (!filtered.length) throw new Error('No cities found');
+        
+        const f = filtered[0];
         const props = f.properties || {};
-        const type = props.type?.toLowerCase() || '';
-        return ['city', 'town', 'village', 'municipality', 'hamlet', 'suburb', 'district', 'borough', 'locality'].includes(type);
-      });
-      if (!filtered.length) throw new Error('No cities found');
-      
-      const f = filtered[0];
-      const props = f.properties || {};
-      const coords = f.geometry?.coordinates || [0, 0];
-      const cityName = props.city || props.name || line.split(',')[0];
-      const countryName = props.country || '';
-      const lat = coords[1], lon = coords[0];
-      const useArea = props.osm_type === 'relation';
-      const areaId = useArea ? 3600000000 + parseInt(props.osm_id) : null;
+        const coords = f.geometry?.coordinates || [0, 0];
+        cityName = props.city || props.name || line.split(',')[0];
+        countryName = props.country || '';
+        lat = coords[1];
+        lon = coords[0];
+        useArea = props.osm_type === 'relation';
+        areaId = useArea ? 3600000000 + parseInt(props.osm_id) : null;
+      }
       
       // Fetch data
       const types = ROAD_TYPES.join('|');
