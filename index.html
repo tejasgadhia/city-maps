@@ -541,6 +541,35 @@ const batchStatus = $('batchStatus'), batchProgress = $('batchProgress'), batchP
 const uiClassic = $('uiClassic'), uiDark = $('uiDark');
 const zoomControls = $('zoomControls'), zoomIn = $('zoomIn'), zoomOut = $('zoomOut'), zoomReset = $('zoomReset'), zoomLevel = $('zoomLevel');
 const advancedCollapsible = $('advancedCollapsible');
+const orientToggle = $('orientToggle'), sizeToggle = $('sizeToggle');
+
+// Animated Pill Toggle
+function initPillToggle(toggle) {
+  if (!toggle) return;
+  const slider = toggle.querySelector('.pill-slider');
+  const inputs = toggle.querySelectorAll('input');
+  
+  function updateSlider() {
+    const checked = toggle.querySelector('input:checked');
+    if (!checked || !slider) return;
+    const label = checked.nextElementSibling;
+    const toggleRect = toggle.getBoundingClientRect();
+    const labelRect = label.getBoundingClientRect();
+    slider.style.width = labelRect.width + 'px';
+    slider.style.transform = `translateX(${labelRect.left - toggleRect.left - 4}px)`;
+  }
+  
+  setTimeout(updateSlider, 0);
+  inputs.forEach(input => {
+    input.addEventListener('change', () => {
+      updateSlider();
+      if (data) render(canvas, themeEl.value, true);
+    });
+  });
+  window.addEventListener('resize', updateSlider);
+}
+initPillToggle(orientToggle);
+initPillToggle(sizeToggle);
 
 // Collapsible
 advancedCollapsible.querySelector('.collapsible-header').onclick = () => advancedCollapsible.classList.toggle('open');
