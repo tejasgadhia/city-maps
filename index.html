@@ -553,11 +553,17 @@ document.onclick = e => { if (!e.target.closest('.search-box')) resultsEl.classL
 
 async function doSearch(q) {
   try {
-    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=6&addressdetails=1`, { headers: { 'User-Agent': 'MapToPoster/1.0' } });
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=10&addressdetails=1`, { headers: { 'User-Agent': 'MapToPoster/1.0' } });
     const list = await r.json();
-    resultsEl.innerHTML = list.map((p, i) => `<div data-i="${i}">${p.display_name}<br><small>${p.type}</small></div>`).join('');
-    resultsEl.classList.toggle('open', list.length > 0);
-    resultsEl.querySelectorAll('div').forEach((el, i) => { el.onclick = () => selectPlace(list[i]); });
+    // Filter for actual cities/towns/villages only
+    const filtered = list.filter(p => {
+      const type = p.type?.toLowerCase() || '';
+      const placeType = p.class?.toLowerCase() || '';
+      return placeType === 'place' && ['city', 'town', 'village', 'municipality'].includes(type);
+    });
+    resultsEl.innerHTML = filtered.map((p, i) => `<div data-i="${i}">${p.display_name}<br><small>${p.type.toUpperCase()}</small></div>`).join('');
+    resultsEl.classList.toggle('open', filtered.length > 0);
+    resultsEl.querySelectorAll('div').forEach((el, i) => { el.onclick = () => selectPlace(filtered[i]); });
   } catch (e) { console.error(e); }
 }
 
@@ -570,6 +576,7 @@ function selectPlace(p) {
   selectedEl.dataset.city = city;
   selectedEl.dataset.country = country;
   searchEl.value = '';
+  resultsEl.innerHTML = '';
   resultsEl.classList.remove('open');
 }
 
@@ -1062,11 +1069,17 @@ batchStart.onclick = async () => {
     
     try {
       // Search for city
-      const searchRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(line)}&format=json&limit=1&addressdetails=1`, { headers: { 'User-Agent': 'MapToPoster/1.0' } });
+      const searchRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(line)}&format=json&limit=10&addressdetails=1`, { headers: { 'User-Agent': 'MapToPoster/1.0' } });
       const searchData = await searchRes.json();
-      if (!searchData.length) throw new Error('Not found');
+      // Filter for actual cities/towns/villages
+      const filtered = searchData.filter(p => {
+        const type = p.type?.toLowerCase() || '';
+        const placeType = p.class?.toLowerCase() || '';
+        return placeType === 'place' && ['city', 'town', 'village', 'municipality'].includes(type);
+      });
+      if (!filtered.length) throw new Error('No cities found');
       
-      const p = searchData[0];
+      const p = filtered[0];
       const addr = p.address || {};
       const cityName = addr.city || addr.town || addr.village || addr.municipality || p.name || line.split(',')[0];
       const countryName = addr.country || '';
