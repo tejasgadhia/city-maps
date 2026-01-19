@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MapToPoster - UI Mockups</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: system-ui, -apple-system, sans-serif; 
+      background: #0a0a0a; 
+      color: #fff;
+      padding: 40px;
+    }
+    h1 { 
+      text-align: center; 
+      font-weight: 200; 
+      letter-spacing: 8px; 
+      margin-bottom: 40px;
+      font-size: 28px;
+    }
+    .mockups { 
+      display: grid; 
+      grid-template-columns: repeat(2, 1fr); 
+      gap: 40px; 
+      max-width: 1600px; 
+      margin: 0 auto;
+    }
+    .mockup { 
+      background: #111; 
+      border-radius: 16px; 
+      overflow: hidden;
+      border: 1px solid #333;
+    }
+    .mockup-header {
+      padding: 16px 20px;
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .mockup-header h2 { font-size: 14px; font-weight: 600; letter-spacing: 2px; }
+    .mockup-header span { font-size: 12px; color: #666; }
+    .mockup-body { 
+      height: 450px; 
+      position: relative;
+      overflow: hidden;
+    }
+    
+    /* Shared mini-component styles */
+    .mini-btn { 
+      padding: 6px 12px; 
+      background: #4a9eff; 
+      border: none; 
+      border-radius: 4px; 
+      color: #fff; 
+      font-size: 9px; 
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .mini-btn.secondary { background: #333; }
+    .mini-input { 
+      padding: 6px 10px; 
+      background: #1a1a1a; 
+      border: 1px solid #333; 
+      border-radius: 4px; 
+      color: #fff; 
+      font-size: 10px;
+      width: 100%;
+    }
+    .mini-select {
+      padding: 5px 8px;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 4px;
+      color: #888;
+      font-size: 9px;
+    }
+    .mini-label { font-size: 8px; color: #555; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .mini-toggle {
+      display: flex;
+      background: #222;
+      border-radius: 6px;
+      padding: 3px;
+    }
+    .mini-toggle span {
+      padding: 5px 12px;
+      font-size: 9px;
+      border-radius: 4px;
+      color: #666;
+    }
+    .mini-toggle span.active { background: #4a9eff; color: #fff; }
+    
+    /* Map placeholder */
+    .map-preview {
+      background: #0a0a0a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .map-placeholder {
+      width: 120px;
+      height: 120px;
+      background: radial-gradient(circle at 50% 40%, #444 0%, transparent 60%);
+      position: relative;
+    }
+    .map-placeholder::before {
+      content: '';
+      position: absolute;
+      inset: 20px;
+      background: 
+        linear-gradient(90deg, #fff 1px, transparent 1px) 0 0 / 15px 15px,
+        linear-gradient(0deg, #fff 1px, transparent 1px) 0 0 / 15px 15px;
+      opacity: 0.3;
+    }
+    .map-label { 
+      font-size: 11px; 
+      letter-spacing: 4px; 
+      margin-top: 12px;
+      font-weight: 300;
+    }
+    .map-sublabel { font-size: 8px; color: #555; margin-top: 4px; }
+    
+    /* City list item */
+    .city-item {
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .city-item:hover { background: #222; }
+    .city-item.active { background: #4a9eff; }
+    .city-item .name { font-size: 11px; font-weight: 500; }
+    .city-item .country { font-size: 9px; color: #555; }
+    .city-item.active .country { color: rgba(255,255,255,0.7); }
+</style>
+</head>
+<body>
+  <h1>CHOOSE A LAYOUT</h1>
+  
+  <div class="mockups">
+    <!-- MOCKUP 1: Left Sidebar + Bottom Bar (Current Refined) -->
+    <div class="mockup">
+      <div class="mockup-header">
+        <h2>1. SIDEBAR + BOTTOM BAR</h2>
+        <span>Current layout, refined</span>
+      </div>
+      <div class="mockup-body" style="display:grid; grid-template-columns:200px 1fr;">
+        <!-- Sidebar -->
+        <div style="background:#151515; border-right:1px solid #333; display:flex; flex-direction:column;">
+          <div style="padding:12px; border-bottom:1px solid #333; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:11px; letter-spacing:2px; font-weight:200;">MAPTOPOSTER</span>
+            <div class="mini-toggle" style="transform:scale(0.8);">
+              <span>☀</span>
+              <span class="active">☾</span>
+            </div>
+          </div>
+          <div style="padding:10px;">
+            <input class="mini-input" placeholder="Search cities..." style="margin-bottom:8px;">
+            <div style="display:flex; gap:4px;">
+              <select class="mini-select" style="flex:1;"><option>All Regions</option></select>
+              <select class="mini-select" style="flex:1;"><option>A → Z</option></select>
+            </div>
+          </div>
+          <div style="padding:0 6px; flex:1; overflow:hidden;">
+            <div class="city-item"><div class="name">Amsterdam</div><div class="country">Netherlands</div></div>
+            <div class="city-item active"><div class="name">Austin</div><div class="country">United States</div></div>
+            <div class="city-item"><div class="name">Barcelona</div><div class="country">Spain</div></div>
+            <div class="city-item"><div class="name">Berlin</div><div class="country">Germany</div></div>
+            <div class="city-item"><div class="name">Boston</div><div class="country">United States</div></div>
+          </div>
+        </div>
+        <!-- Main -->
+        <div style="display:flex; flex-direction:column;">
+          <div style="flex:1; display:flex; align-items:center; justify-content:center; background:#0d0d0d;">
+            <div style="background:#0a0a0a; border:1px solid #222; border-radius:4px; padding:40px 30px; text-align:center;">
+              <div class="map-placeholder"></div>
+              <div class="map-label">AUSTIN</div>
+              <div class="map-sublabel">UNITED STATES</div>
+            </div>
+          </div>
+          <div style="padding:12px 16px; background:#151515; border-top:1px solid #333; display:flex; gap:16px; align-items:center;">
+            <div><div class="mini-label">Theme</div><select class="mini-select"><option>Noir</option></select></div>
+            <div><div class="mini-label">Orientation</div><div class="mini-toggle"><span class="active">Portrait</span><span>Landscape</span></div></div>
+            <div><div class="mini-label">Size</div><div class="mini-toggle"><span class="active">5×7"</span><span>8×10"</span></div></div>
+            <div style="margin-left:auto; display:flex; gap:6px;">
+              <button class="mini-btn">Generate</button>
+              <button class="mini-btn secondary">PNG</button>
+              <button class="mini-btn secondary">SVG</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOCKUP 2: Three Columns -->
+    <div class="mockup">
+      <div class="mockup-header">
+        <h2>2. THREE COLUMNS</h2>
+        <span>Cities | Preview | Options</span>
+      </div>
+      <div class="mockup-body" style="display:grid; grid-template-columns:180px 1fr 200px;">
+        <!-- Left: Cities -->
+        <div style="background:#151515; border-right:1px solid #333; display:flex; flex-direction:column;">
+          <div style="padding:12px; border-bottom:1px solid #333;">
+            <span style="font-size:10px; color:#555; text-transform:uppercase; letter-spacing:1px;">Cities</span>
+          </div>
+          <div style="padding:8px;">
+            <input class="mini-input" placeholder="Search..." style="margin-bottom:6px;">
+          </div>
+          <div style="padding:0 6px; flex:1; overflow:hidden;">
+            <div class="city-item"><div class="name">Amsterdam</div></div>
+            <div class="city-item active"><div class="name">Austin</div></div>
+            <div class="city-item"><div class="name">Barcelona</div></div>
+            <div class="city-item"><div class="name">Berlin</div></div>
+            <div class="city-item"><div class="name">Boston</div></div>
+            <div class="city-item"><div class="name">Chicago</div></div>
+          </div>
+        </div>
+        <!-- Center: Preview -->
+        <div style="display:flex; flex-direction:column; background:#0a0a0a;">
+          <div style="padding:10px 16px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:11px; letter-spacing:3px; font-weight:200;">MAPTOPOSTER</span>
+            <div class="mini-toggle" style="transform:scale(0.85);"><span>☀</span><span class="active">☾</span></div>
+          </div>
+          <div style="flex:1; display:flex; align-items:center; justify-content:center;">
+            <div style="text-align:center;">
+              <div class="map-placeholder" style="width:140px; height:180px;"></div>
+              <div class="map-label">AUSTIN</div>
+              <div class="map-sublabel">UNITED STATES</div>
+            </div>
+          </div>
+        </div>
+        <!-- Right: Options -->
+        <div style="background:#151515; border-left:1px solid #333; padding:16px; display:flex; flex-direction:column; gap:14px;">
+          <div><div class="mini-label">Theme</div><select class="mini-select" style="width:100%;"><option>Noir — Classic dark</option></select></div>
+          <div><div class="mini-label">Orientation</div><div class="mini-toggle" style="width:100%;"><span class="active" style="flex:1; text-align:center;">Portrait</span><span style="flex:1; text-align:center;">Landscape</span></div></div>
+          <div><div class="mini-label">Size</div><div class="mini-toggle" style="width:100%;"><span class="active" style="flex:1; text-align:center;">5×7"</span><span style="flex:1; text-align:center;">8×10"</span></div></div>
+          <div><div class="mini-label">Display Name</div><input class="mini-input" placeholder="Auto"></div>
+          <div style="margin-top:auto; display:flex; flex-direction:column; gap:6px;">
+            <button class="mini-btn" style="width:100%;">Generate Preview</button>
+            <div style="display:flex; gap:6px;">
+              <button class="mini-btn secondary" style="flex:1;">PNG</button>
+              <button class="mini-btn secondary" style="flex:1;">SVG</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOCKUP 3: Top Nav + Floating Controls -->
+    <div class="mockup">
+      <div class="mockup-header">
+        <h2>3. TOP NAV + FLOATING</h2>
+        <span>Minimal, preview-focused</span>
+      </div>
+      <div class="mockup-body" style="display:flex; flex-direction:column; background:#0a0a0a;">
+        <!-- Top Bar -->
+        <div style="padding:10px 20px; background:#111; border-bottom:1px solid #222; display:flex; align-items:center; gap:20px;">
+          <span style="font-size:12px; letter-spacing:3px; font-weight:200;">MAPTOPOSTER</span>
+          <input class="mini-input" placeholder="Search cities..." style="width:200px;">
+          <select class="mini-select"><option>Noir</option></select>
+          <div class="mini-toggle"><span class="active">Portrait</span><span>Landscape</span></div>
+          <div class="mini-toggle"><span class="active">5×7"</span><span>8×10"</span></div>
+          <div style="margin-left:auto; display:flex; gap:6px;">
+            <div class="mini-toggle"><span>☀</span><span class="active">☾</span></div>
+          </div>
+        </div>
+        <!-- Preview Area -->
+        <div style="flex:1; display:flex; align-items:center; justify-content:center; position:relative;">
+          <div style="text-align:center;">
+            <div class="map-placeholder" style="width:160px; height:210px;"></div>
+            <div class="map-label">AUSTIN</div>
+            <div class="map-sublabel">UNITED STATES</div>
+          </div>
+          <!-- Floating action buttons -->
+          <div style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); display:flex; gap:8px; background:#1a1a1a; padding:8px 12px; border-radius:8px; border:1px solid #333;">
+            <button class="mini-btn">Download PNG</button>
+            <button class="mini-btn secondary">SVG</button>
+            <button class="mini-btn secondary">Compare Themes</button>
+          </div>
+          <!-- City quick-select floating left -->
+          <div style="position:absolute; left:20px; top:50%; transform:translateY(-50%); background:#151515; border:1px solid #333; border-radius:8px; padding:8px; width:140px;">
+            <div style="font-size:8px; color:#555; padding:4px 8px; text-transform:uppercase;">Recent</div>
+            <div class="city-item active" style="padding:6px 8px;"><div class="name" style="font-size:10px;">Austin</div></div>
+            <div class="city-item" style="padding:6px 8px;"><div class="name" style="font-size:10px;">New York</div></div>
+            <div class="city-item" style="padding:6px 8px;"><div class="name" style="font-size:10px;">Tokyo</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOCKUP 4: Dashboard Cards -->
+    <div class="mockup">
+      <div class="mockup-header">
+        <h2>4. DASHBOARD CARDS</h2>
+        <span>Grid-based layout</span>
+      </div>
+      <div class="mockup-body" style="padding:16px; background:#0a0a0a; display:grid; grid-template-columns:1fr 200px; grid-template-rows:auto 1fr; gap:12px;">
+        <!-- Header -->
+        <div style="grid-column:1/-1; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:14px; letter-spacing:4px; font-weight:200;">MAPTOPOSTER</span>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input class="mini-input" placeholder="Search cities..." style="width:180px;">
+            <div class="mini-toggle"><span>☀</span><span class="active">☾</span></div>
+          </div>
+        </div>
+        <!-- Preview Card -->
+        <div style="background:#151515; border-radius:12px; border:1px solid #222; display:flex; align-items:center; justify-content:center; position:relative;">
+          <div style="text-align:center;">
+            <div class="map-placeholder" style="width:140px; height:180px;"></div>
+            <div class="map-label">AUSTIN</div>
+            <div class="map-sublabel">UNITED STATES</div>
+          </div>
+          <div style="position:absolute; top:12px; right:12px; display:flex; gap:4px;">
+            <button class="mini-btn secondary" style="padding:4px 8px;">−</button>
+            <span style="font-size:9px; color:#555; padding:4px;">100%</span>
+            <button class="mini-btn secondary" style="padding:4px 8px;">+</button>
+          </div>
+        </div>
+        <!-- Options Panel -->
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <div style="background:#151515; border-radius:10px; border:1px solid #222; padding:12px;">
+            <div class="mini-label" style="margin-bottom:8px;">Theme</div>
+            <select class="mini-select" style="width:100%;"><option>Noir — Classic dark</option></select>
+          </div>
+          <div style="background:#151515; border-radius:10px; border:1px solid #222; padding:12px;">
+            <div class="mini-label" style="margin-bottom:8px;">Format</div>
+            <div class="mini-toggle" style="width:100%; margin-bottom:8px;"><span class="active" style="flex:1; text-align:center;">Portrait</span><span style="flex:1; text-align:center;">Land.</span></div>
+            <div class="mini-toggle" style="width:100%;"><span class="active" style="flex:1; text-align:center;">5×7"</span><span style="flex:1; text-align:center;">8×10"</span></div>
+          </div>
+          <div style="background:#151515; border-radius:10px; border:1px solid #222; padding:12px; display:flex; flex-direction:column; gap:6px;">
+            <button class="mini-btn" style="width:100%;">Generate</button>
+            <div style="display:flex; gap:6px;">
+              <button class="mini-btn secondary" style="flex:1;">PNG</button>
+              <button class="mini-btn secondary" style="flex:1;">SVG</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOCKUP 5: Minimal Centered (Apple Style) -->
+    <div class="mockup">
+      <div class="mockup-header">
+        <h2>5. MINIMAL CENTERED</h2>
+        <span>Clean, Apple-inspired</span>
+      </div>
+      <div class="mockup-body" style="display:flex; flex-direction:column; background:#0a0a0a;">
+        <!-- Minimal top -->
+        <div style="padding:16px 24px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:13px; letter-spacing:4px; font-weight:200;">MAPTOPOSTER</span>
+          <div class="mini-toggle"><span>☀</span><span class="active">☾</span></div>
+        </div>
+        <!-- Centered content -->
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px;">
+          <!-- Search -->
+          <input class="mini-input" placeholder="Search for a city..." style="width:300px; padding:12px 16px; font-size:13px; border-radius:8px; text-align:center;">
+          <!-- Preview -->
+          <div style="text-align:center;">
+            <div class="map-placeholder" style="width:150px; height:190px;"></div>
+            <div class="map-label" style="margin-top:16px;">AUSTIN</div>
+            <div class="map-sublabel">UNITED STATES</div>
+          </div>
+          <!-- Simple options row -->
+          <div style="display:flex; gap:16px; align-items:center;">
+            <select class="mini-select" style="padding:8px 12px;"><option>Noir</option></select>
+            <div class="mini-toggle"><span class="active">Portrait</span><span>Landscape</span></div>
+            <div class="mini-toggle"><span class="active">5×7"</span><span>8×10"</span></div>
+          </div>
+          <!-- Action -->
+          <div style="display:flex; gap:8px;">
+            <button class="mini-btn" style="padding:10px 24px;">Download PNG</button>
+            <button class="mini-btn secondary" style="padding:10px 16px;">SVG</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MOCKUP 6: Split View with Tabs -->
+    <div class="mockup">
+      <div class="mockup-header">
+        <h2>6. SPLIT VIEW + TABS</h2>
+        <span>Browse | Configure | Export</span>
+      </div>
+      <div class="mockup-body" style="display:grid; grid-template-columns:220px 1fr;">
+        <!-- Left: Tabbed panel -->
+        <div style="background:#111; border-right:1px solid #222; display:flex; flex-direction:column;">
+          <!-- Tabs -->
+          <div style="display:flex; border-bottom:1px solid #222;">
+            <div style="flex:1; padding:10px; text-align:center; font-size:9px; text-transform:uppercase; letter-spacing:1px; background:#1a1a1a; color:#fff; border-bottom:2px solid #4a9eff;">Cities</div>
+            <div style="flex:1; padding:10px; text-align:center; font-size:9px; text-transform:uppercase; letter-spacing:1px; color:#555;">Options</div>
+            <div style="flex:1; padding:10px; text-align:center; font-size:9px; text-transform:uppercase; letter-spacing:1px; color:#555;">Export</div>
+          </div>
+          <!-- Tab content (Cities) -->
+          <div style="padding:10px;">
+            <input class="mini-input" placeholder="Search..." style="margin-bottom:8px;">
+            <div style="display:flex; gap:4px; margin-bottom:10px;">
+              <select class="mini-select" style="flex:1;"><option>All</option></select>
+              <select class="mini-select" style="flex:1;"><option>A-Z</option></select>
+            </div>
+          </div>
+          <div style="flex:1; padding:0 6px; overflow:hidden;">
+            <div class="city-item"><div class="name">Amsterdam</div><div class="country">Netherlands</div></div>
+            <div class="city-item active"><div class="name">Austin</div><div class="country">United States</div></div>
+            <div class="city-item"><div class="name">Barcelona</div><div class="country">Spain</div></div>
+            <div class="city-item"><div class="name">Berlin</div><div class="country">Germany</div></div>
+            <div class="city-item"><div class="name">Boston</div><div class="country">United States</div></div>
+          </div>
+        </div>
+        <!-- Right: Preview + controls -->
+        <div style="display:flex; flex-direction:column; background:#0a0a0a;">
+          <!-- Top bar -->
+          <div style="padding:10px 16px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:12px; letter-spacing:3px; font-weight:200;">MAPTOPOSTER</span>
+            <div style="display:flex; gap:12px; align-items:center;">
+              <select class="mini-select"><option>Noir</option></select>
+              <div class="mini-toggle"><span class="active">5×7"</span><span>8×10"</span></div>
+              <div class="mini-toggle"><span>☀</span><span class="active">☾</span></div>
+            </div>
+          </div>
+          <!-- Preview -->
+          <div style="flex:1; display:flex; align-items:center; justify-content:center;">
+            <div style="text-align:center;">
+              <div class="map-placeholder" style="width:130px; height:170px;"></div>
+              <div class="map-label">AUSTIN</div>
+              <div class="map-sublabel">UNITED STATES</div>
+            </div>
+          </div>
+          <!-- Bottom actions -->
+          <div style="padding:12px 16px; border-top:1px solid #222; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:10px; color:#555;">28,807 roads • 5,990 water features</span>
+            <div style="display:flex; gap:6px;">
+              <button class="mini-btn secondary">Compare</button>
+              <button class="mini-btn secondary">Batch</button>
+              <button class="mini-btn">Download</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  
+  <div style="text-align:center; margin-top:40px; color:#555; font-size:13px;">
+    Reply with a number (1-6) to select a layout, or describe what you'd like to combine from different options.
+  </div>
+</body>
+</html>
