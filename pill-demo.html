@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Animated Pill Toggle with Icons</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #111;
+      color: #ddd;
+      padding: 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+      align-items: flex-start;
+    }
+    h2 { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+    
+    /* Animated Pill Toggle */
+    .pill-toggle {
+      display: inline-flex;
+      background: #252525;
+      border-radius: 10px;
+      padding: 4px;
+      position: relative;
+    }
+    
+    .pill-toggle input { display: none; }
+    
+    .pill-toggle label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #888;
+      transition: color 0.3s;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .pill-toggle label svg {
+      width: 16px;
+      height: 16px;
+      transition: transform 0.3s;
+    }
+    
+    .pill-toggle input:checked + label {
+      color: #fff;
+    }
+    
+    .pill-toggle input:checked + label svg {
+      transform: scale(1.1);
+    }
+    
+    /* The sliding pill background */
+    .pill-slider {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      height: calc(100% - 8px);
+      background: #4a9eff;
+      border-radius: 8px;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 0;
+    }
+    
+    /* Different animation curves to try */
+    .group { margin-bottom: 40px; }
+    .group-title { font-size: 14px; color: #4a9eff; margin-bottom: 20px; }
+    
+    .variations { display: flex; flex-direction: column; gap: 24px; }
+    .var-row { display: flex; align-items: center; gap: 20px; }
+    .var-label { font-size: 11px; color: #666; width: 140px; }
+    
+    /* Easing variations */
+    .ease-smooth .pill-slider { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .ease-bounce .pill-slider { transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.3s ease; }
+    .ease-elastic .pill-slider { transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55), width 0.3s ease; }
+    .ease-swift .pill-slider { transition: transform 0.25s cubic-bezier(0.55, 0, 0.1, 1), width 0.25s cubic-bezier(0.55, 0, 0.1, 1); }
+  </style>
+</head>
+<body>
+  <h1 style="font-weight: 300; letter-spacing: 2px; margin-bottom: 20px;">Animated Pill Toggle</h1>
+  <p style="color: #666; margin-bottom: 40px;">Click options to see the sliding animation. Compare different easing curves below.</p>
+
+  <div class="group">
+    <div class="group-title">Orientation</div>
+    <div class="variations">
+      <div class="var-row">
+        <span class="var-label">Smooth (recommended)</span>
+        <div class="pill-toggle ease-smooth" id="orient1">
+          <div class="pill-slider"></div>
+          <input type="radio" name="orient1" id="o1-port" checked>
+          <label for="o1-port">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="2"/></svg>
+            Portrait
+          </label>
+          <input type="radio" name="orient1" id="o1-land">
+          <label for="o1-land">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/></svg>
+            Landscape
+          </label>
+        </div>
+      </div>
+      
+      <div class="var-row">
+        <span class="var-label">Bounce</span>
+        <div class="pill-toggle ease-bounce" id="orient2">
+          <div class="pill-slider"></div>
+          <input type="radio" name="orient2" id="o2-port" checked>
+          <label for="o2-port">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="2"/></svg>
+            Portrait
+          </label>
+          <input type="radio" name="orient2" id="o2-land">
+          <label for="o2-land">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/></svg>
+            Landscape
+          </label>
+        </div>
+      </div>
+      
+      <div class="var-row">
+        <span class="var-label">Elastic</span>
+        <div class="pill-toggle ease-elastic" id="orient3">
+          <div class="pill-slider"></div>
+          <input type="radio" name="orient3" id="o3-port" checked>
+          <label for="o3-port">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="2"/></svg>
+            Portrait
+          </label>
+          <input type="radio" name="orient3" id="o3-land">
+          <label for="o3-land">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/></svg>
+            Landscape
+          </label>
+        </div>
+      </div>
+      
+      <div class="var-row">
+        <span class="var-label">Swift</span>
+        <div class="pill-toggle ease-swift" id="orient4">
+          <div class="pill-slider"></div>
+          <input type="radio" name="orient4" id="o4-port" checked>
+          <label for="o4-port">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="12" height="18" rx="2"/></svg>
+            Portrait
+          </label>
+          <input type="radio" name="orient4" id="o4-land">
+          <label for="o4-land">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/></svg>
+            Landscape
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="group-title">Size (with icons)</div>
+    <div class="variations">
+      <div class="var-row">
+        <span class="var-label">Smooth (recommended)</span>
+        <div class="pill-toggle ease-smooth" id="size1">
+          <div class="pill-slider"></div>
+          <input type="radio" name="size1" id="s1-5x7" checked>
+          <label for="s1-5x7">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="5" y="3" width="14" height="18" rx="1"/>
+              <text x="12" y="14" text-anchor="middle" font-size="6" fill="currentColor" stroke="none">5×7</text>
+            </svg>
+            5×7"
+          </label>
+          <input type="radio" name="size1" id="s1-8x10">
+          <label for="s1-8x10">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="4" y="2" width="16" height="20" rx="1"/>
+              <text x="12" y="14" text-anchor="middle" font-size="5" fill="currentColor" stroke="none">8×10</text>
+            </svg>
+            8×10"
+          </label>
+        </div>
+      </div>
+      
+      <div class="var-row">
+        <span class="var-label">Alternative size icons</span>
+        <div class="pill-toggle ease-smooth" id="size2">
+          <div class="pill-slider"></div>
+          <input type="radio" name="size2" id="s2-5x7" checked>
+          <label for="s2-5x7">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="6" y="4" width="12" height="16" rx="1"/>
+            </svg>
+            5×7"
+          </label>
+          <input type="radio" name="size2" id="s2-8x10">
+          <label for="s2-8x10">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="4" y="2" width="16" height="20" rx="1"/>
+            </svg>
+            8×10"
+          </label>
+        </div>
+      </div>
+
+      <div class="var-row">
+        <span class="var-label">Size comparison icons</span>
+        <div class="pill-toggle ease-smooth" id="size3">
+          <div class="pill-slider"></div>
+          <input type="radio" name="size3" id="s3-5x7" checked>
+          <label for="s3-5x7">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="7" y="5" width="10" height="14" rx="1" stroke-dasharray="2 1"/>
+            </svg>
+            5×7"
+          </label>
+          <input type="radio" name="size3" id="s3-8x10">
+          <label for="s3-8x10">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="4" y="2" width="16" height="20" rx="1"/>
+            </svg>
+            8×10"
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initialize all pill toggles
+    document.querySelectorAll('.pill-toggle').forEach(toggle => {
+      const slider = toggle.querySelector('.pill-slider');
+      const labels = toggle.querySelectorAll('label');
+      const inputs = toggle.querySelectorAll('input');
+      
+      function updateSlider() {
+        const checkedInput = toggle.querySelector('input:checked');
+        const checkedLabel = checkedInput.nextElementSibling;
+        const labelRect = checkedLabel.getBoundingClientRect();
+        const toggleRect = toggle.getBoundingClientRect();
+        
+        slider.style.width = labelRect.width + 'px';
+        slider.style.transform = `translateX(${labelRect.left - toggleRect.left - 4}px)`;
+      }
+      
+      // Initial position
+      updateSlider();
+      
+      // Update on change
+      inputs.forEach(input => {
+        input.addEventListener('change', updateSlider);
+      });
+      
+      // Also allow clicking labels
+      labels.forEach(label => {
+        label.addEventListener('click', () => {
+          setTimeout(updateSlider, 0);
+        });
+      });
+    });
+  </script>
+</body>
+</html>
