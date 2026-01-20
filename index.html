@@ -44,7 +44,7 @@
     /* === THREE COLUMN LAYOUT === */
     .app {
       display: grid;
-      grid-template-columns: 240px 1fr 260px;
+      grid-template-columns: 280px 1fr 320px;
       grid-template-rows: auto 1fr;
       height: 100vh;
       gap: 0;
@@ -316,42 +316,79 @@
     }
     .snap-indicator.visible { opacity: 1; }
     
-    .zoom-controls {
+    /* Canvas toolbar */
+    .canvas-toolbar {
       position: absolute;
       top: 16px;
-      right: 16px;
+      left: 50%;
+      transform: translateX(-50%);
       display: none;
       align-items: center;
-      gap: 4px;
+      gap: 12px;
       background: var(--card);
-      padding: 6px 10px;
-      border-radius: 8px;
+      padding: 8px 14px;
+      border-radius: 10px;
       border: 1px solid var(--border);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
-    .zoom-controls.visible { display: flex; }
-    .zoom-controls button {
-      width: 28px;
-      height: 28px;
+    .canvas-toolbar.visible { display: flex; }
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .toolbar-group label {
+      font-size: 10px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-right: 6px;
+    }
+    .canvas-toolbar button {
+      width: 32px;
+      height: 32px;
       border: none;
       background: var(--bg3);
       color: var(--text);
       border-radius: 6px;
       cursor: pointer;
       font-size: 14px;
+      transition: all 0.15s;
     }
-    .zoom-controls button:hover { background: var(--accent); color: #fff; }
-    .zoom-controls button.active { background: var(--accent); color: #fff; }
-    .zoom-controls .divider {
+    .canvas-toolbar button:hover { background: var(--accent); color: #fff; }
+    .canvas-toolbar button.active { background: var(--accent); color: #fff; }
+    .canvas-toolbar .divider {
       width: 1px;
-      height: 20px;
+      height: 24px;
       background: var(--border);
-      margin: 0 4px;
     }
-    .zoom-controls span {
+    .canvas-toolbar span.zoom-val {
       font-size: 11px;
       color: var(--text2);
       min-width: 45px;
       text-align: center;
+    }
+    .canvas-toolbar .pill-mini {
+      display: flex;
+      background: var(--bg);
+      border-radius: 6px;
+      padding: 2px;
+      border: 1px solid var(--border);
+    }
+    .canvas-toolbar .pill-mini input { display: none; }
+    .canvas-toolbar .pill-mini label {
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--text2);
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 0;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .canvas-toolbar .pill-mini input:checked + label {
+      background: var(--accent);
+      color: #fff;
     }
     .status-bar {
       position: absolute;
@@ -359,19 +396,25 @@
       left: 50%;
       transform: translateX(-50%);
       background: var(--card);
-      padding: 8px 16px;
-      border-radius: 8px;
+      padding: 10px 20px;
+      border-radius: 10px;
       border: 1px solid var(--border);
-      font-size: 12px;
+      font-size: 13px;
       color: var(--text2);
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
-    .status-bar.loading { color: var(--accent); }
+    .status-bar.loading {
+      color: var(--accent);
+      background: var(--bg2);
+      border-color: var(--accent);
+      font-weight: 500;
+    }
     .spinner {
-      width: 14px;
-      height: 14px;
+      width: 18px;
+      height: 18px;
       border: 2px solid var(--border);
       border-top-color: var(--accent);
       border-radius: 50%;
@@ -383,14 +426,51 @@
       bottom: 0;
       left: 0;
       right: 0;
-      height: 3px;
-      background: var(--border);
+      height: 6px;
+      background: var(--bg3);
       display: none;
     }
     .progress.active { display: block; }
     .progress-bar {
       height: 100%;
       background: linear-gradient(90deg, var(--accent), #6ab0ff);
+      width: 0%;
+      transition: width 0.3s;
+      box-shadow: 0 0 10px var(--accent);
+    }
+    
+    /* Loading overlay for initial load */
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 10;
+    }
+    .loading-overlay.hidden { display: none; }
+    .loading-overlay .spinner {
+      width: 32px;
+      height: 32px;
+      border-width: 3px;
+    }
+    .loading-overlay .loading-text {
+      font-size: 14px;
+      color: var(--text2);
+    }
+    .loading-overlay .loading-progress {
+      width: 200px;
+      height: 4px;
+      background: var(--bg3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .loading-overlay .loading-progress-bar {
+      height: 100%;
+      background: var(--accent);
       width: 0%;
       transition: width 0.3s;
     }
@@ -801,14 +881,49 @@
   
   <!-- Center: Preview -->
   <div class="col-preview">
-    <div class="zoom-controls" id="zoomControls">
-      <button id="zoomOut">−</button>
-      <span id="zoomLevel">100%</span>
-      <button id="zoomIn">+</button>
-      <button id="zoomReset" style="font-size:10px; width:auto; padding:0 10px;">Reset</button>
-      <div class="divider"></div>
-      <button id="gridToggle" title="Toggle Grid">⊞</button>
+    <!-- Loading overlay for initial load -->
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="spinner"></div>
+      <div class="loading-text" id="loadingText">Loading map data...</div>
+      <div class="loading-progress">
+        <div class="loading-progress-bar" id="loadingProgressBar"></div>
+      </div>
     </div>
+    
+    <!-- Canvas Toolbar -->
+    <div class="canvas-toolbar" id="canvasToolbar">
+      <div class="toolbar-group">
+        <button id="zoomOut" title="Zoom Out">−</button>
+        <span class="zoom-val" id="zoomLevel">100%</span>
+        <button id="zoomIn" title="Zoom In">+</button>
+        <button id="zoomReset" title="Reset View">↺</button>
+      </div>
+      <div class="divider"></div>
+      <div class="toolbar-group">
+        <button id="gridToggle" title="Toggle Grid">⊞</button>
+        <button id="snapToggle" title="Snap to Center" class="active">◎</button>
+      </div>
+      <div class="divider"></div>
+      <div class="toolbar-group">
+        <label>Size</label>
+        <div class="pill-mini" id="sizeToggle">
+          <input type="radio" name="size" id="size5x7" value="5x7" checked>
+          <label for="size5x7">5×7"</label>
+          <input type="radio" name="size" id="size8x10" value="8x10">
+          <label for="size8x10">8×10"</label>
+        </div>
+      </div>
+      <div class="toolbar-group">
+        <label>Orient</label>
+        <div class="pill-mini" id="orientToggle">
+          <input type="radio" name="orient" id="orientPortrait" value="portrait" checked>
+          <label for="orientPortrait">Portrait</label>
+          <input type="radio" name="orient" id="orientLandscape" value="landscape">
+          <label for="orientLandscape">Landscape</label>
+        </div>
+      </div>
+    </div>
+    
     <div class="canvas-wrapper" id="canvasWrapper">
       <canvas id="preview"></canvas>
       <div class="grid-overlay" id="gridOverlay">
@@ -830,46 +945,26 @@
     </div>
     
     <div class="card">
-      <div class="card-label">Format</div>
-      <div class="card-section">
-        <div class="card-row">
-          <div class="field">
-            <div class="field-label">Orientation</div>
-            <div class="pill-toggle" id="orientToggle">
-              <input type="radio" name="orient" id="orientPortrait" value="portrait" checked>
-              <label for="orientPortrait">Portrait</label>
-              <input type="radio" name="orient" id="orientLandscape" value="landscape">
-              <label for="orientLandscape">Landscape</label>
-            </div>
-          </div>
-        </div>
-        <div class="card-row">
-          <div class="field">
-            <div class="field-label">Print Size</div>
-            <div class="pill-toggle" id="sizeToggle">
-              <input type="radio" name="size" id="size5x7" value="5x7" checked>
-              <label for="size5x7">5×7"</label>
-              <input type="radio" name="size" id="size8x10" value="8x10">
-              <label for="size8x10">8×10"</label>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <div class="card">
       <div class="card-label">Text Options</div>
       <div class="card-section">
         <div class="card-row">
-          <div class="field">
+          <div class="field" style="flex:2;">
             <div class="field-label">City Name</div>
             <input type="text" id="customCity" placeholder="Auto-detect">
           </div>
+          <div class="field" style="flex:1;">
+            <div class="field-label">Size</div>
+            <input type="number" id="cityFontSize" value="48" min="24" max="96" step="2">
+          </div>
         </div>
         <div class="card-row">
-          <div class="field">
+          <div class="field" style="flex:2;">
             <div class="field-label">Subtitle</div>
             <input type="text" id="customCountry" placeholder="Auto-detect">
+          </div>
+          <div class="field" style="flex:1;">
+            <div class="field-label">Size</div>
+            <input type="number" id="subtitleFontSize" value="18" min="10" max="36" step="1">
           </div>
         </div>
         <div class="card-row">
@@ -1014,8 +1109,10 @@ const batchModal = $('batchModal'), batchClose = $('batchClose'), batchInput = $
 const batchTheme = $('batchTheme'), batchSize = $('batchSize'), batchStart = $('batchStart');
 const batchStatus = $('batchStatus'), batchProgress = $('batchProgress'), batchProgressBar = $('batchProgressBar'), batchLog = $('batchLog');
 const uiClassic = $('uiClassic'), uiDark = $('uiDark');
-const zoomControls = $('zoomControls'), zoomIn = $('zoomIn'), zoomOut = $('zoomOut'), zoomReset = $('zoomReset'), zoomLevel = $('zoomLevel');
-const gridToggle = $('gridToggle'), gridOverlay = $('gridOverlay'), snapIndicator = $('snapIndicator');
+const canvasToolbar = $('canvasToolbar'), zoomIn = $('zoomIn'), zoomOut = $('zoomOut'), zoomReset = $('zoomReset'), zoomLevel = $('zoomLevel');
+const gridToggle = $('gridToggle'), gridOverlay = $('gridOverlay'), snapIndicator = $('snapIndicator'), snapToggle = $('snapToggle');
+const loadingOverlay = $('loadingOverlay'), loadingText = $('loadingText'), loadingProgressBar = $('loadingProgressBar');
+const cityFontSizeEl = $('cityFontSize'), subtitleFontSizeEl = $('subtitleFontSize');
 const citySearchEl = $('citySearch'), sortOrder = $('sortOrder');
 const cityListEl = $('cityList'), cityCountEl = $('cityCount');
 
@@ -1158,8 +1255,18 @@ sortOrder.onchange = renderCityList;
 
 // === GRID TOGGLE ===
 let showGrid = false;
+let snapEnabled = true;
+
 gridToggle.onclick = () => {
   showGrid = !showGrid;
+  gridOverlay.classList.toggle('visible', showGrid);
+  gridToggle.classList.toggle('active', showGrid);
+};
+
+snapToggle.onclick = () => {
+  snapEnabled = !snapEnabled;
+  snapToggle.classList.toggle('active', snapEnabled);
+};
   gridOverlay.classList.toggle('visible', showGrid);
   gridToggle.classList.toggle('active', showGrid);
 };
@@ -1371,7 +1478,10 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride) {
   const textY = mapTop + mapH + margin * (isLandscape ? 0.6 : 0.8);
   ctx.textAlign = 'center';
   
-  const citySize = Math.round((isLandscape ? 40 : 48) * scale);
+  // Use custom font sizes from inputs
+  const baseCitySize = parseInt(cityFontSizeEl?.value || 48);
+  const baseSubtitleSize = parseInt(subtitleFontSizeEl?.value || 18);
+  const citySize = Math.round(baseCitySize * scale * (isLandscape ? 0.85 : 1));
   ctx.font = `300 ${citySize}px ${font}`;
   ctx.fillStyle = theme.text;
   const cityUpper = city.toUpperCase();
@@ -1386,7 +1496,7 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride) {
   ctx.strokeStyle = theme.text + '40'; ctx.lineWidth = scale;
   ctx.beginPath(); ctx.moveTo(w/2 - 30*scale, lineY); ctx.lineTo(w/2 + 30*scale, lineY); ctx.stroke();
   
-  const countrySize = Math.round(18 * scale);
+  const countrySize = Math.round(baseSubtitleSize * scale);
   ctx.font = `400 ${countrySize}px ${font}`;
   ctx.fillStyle = theme.text + 'cc';
   ctx.fillText(country.toUpperCase(), w/2, lineY + countrySize * 1.4);
@@ -1398,6 +1508,15 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride) {
     const lat = data.lat, lon = data.lon;
     const coords = `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(4)}°${lon >= 0 ? 'E' : 'W'}`;
     ctx.fillText(coords, w/2, lineY + countrySize * 1.4 + coordSize * 1.6);
+  }
+  
+  // Draw map boundary indicator (only in preview mode)
+  if (isPreview && zoom === 1 && panX === 0 && panY === 0) {
+    ctx.strokeStyle = theme.text + '20';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(margin, mapTop, mapW, mapH);
+    ctx.setLineDash([]);
   }
 }
 </script>
@@ -1412,7 +1531,13 @@ genBtn.onclick = async () => {
   compareBtn.disabled = true;
   zoom = 1; panX = 0; panY = 0;
   
+  // Show loading overlay
+  loadingOverlay.classList.remove('hidden');
+  loadingProgressBar.style.width = '0%';
+  
   try {
+    loadingText.textContent = 'Resolving city boundary...';
+    loadingProgressBar.style.width = '5%';
     status('Resolving city boundary...', false, true);
     setProgress(5);
     
@@ -1422,7 +1547,17 @@ genBtn.onclick = async () => {
     }
     
     const radius = parseInt(radiusEl?.value || 10000);
-    const result = await fetchData(areaId, place.lat, place.lon, radius, setProgress);
+    
+    // Update loading overlay during fetch
+    const onProgress = (pct) => {
+      setProgress(pct);
+      loadingProgressBar.style.width = pct + '%';
+      if (pct < 50) loadingText.textContent = 'Fetching street data...';
+      else if (pct < 80) loadingText.textContent = 'Fetching water bodies...';
+      else loadingText.textContent = 'Processing map data...';
+    };
+    
+    const result = await fetchData(areaId, place.lat, place.lon, radius, onProgress);
     
     const bounds = calcBounds(result.streets, result.water);
     data = {
@@ -1435,9 +1570,12 @@ genBtn.onclick = async () => {
       country: selectedEl.dataset.country || place.address?.country || ''
     };
     
+    loadingText.textContent = 'Rendering preview...';
+    loadingProgressBar.style.width = '95%';
     setProgress(95);
     render(canvas, themeEl.value, true);
     setProgress(100);
+    loadingProgressBar.style.width = '100%';
     
     const roadCount = result.streets.elements?.length || 0;
     const waterCount = result.water.elements?.length || 0;
@@ -1446,13 +1584,14 @@ genBtn.onclick = async () => {
     dlBtn.disabled = false;
     dlSvgBtn.disabled = false;
     compareBtn.disabled = false;
-    zoomControls.classList.add('visible');
+    canvasToolbar.classList.add('visible');
     
   } catch (e) {
     console.error(e);
     status('Error: ' + e.message, true);
   } finally {
     genBtn.disabled = false;
+    loadingOverlay.classList.add('hidden');
     setTimeout(() => setProgress(null), 500);
   }
 };
@@ -1507,13 +1646,15 @@ document.onmousemove = e => {
   lastX = e.clientX;
   lastY = e.clientY;
   
-  // Snap to center
-  if (Math.abs(panX) < SNAP_THRESHOLD && Math.abs(panY) < SNAP_THRESHOLD) {
-    if (panX !== 0 || panY !== 0) { panX = 0; panY = 0; showSnap('Centered'); }
-  } else if (Math.abs(panX) < SNAP_THRESHOLD) {
-    if (panX !== 0) { panX = 0; showSnap('Centered H'); }
-  } else if (Math.abs(panY) < SNAP_THRESHOLD) {
-    if (panY !== 0) { panY = 0; showSnap('Centered V'); }
+  // Snap to center (if enabled)
+  if (snapEnabled) {
+    if (Math.abs(panX) < SNAP_THRESHOLD && Math.abs(panY) < SNAP_THRESHOLD) {
+      if (panX !== 0 || panY !== 0) { panX = 0; panY = 0; showSnap('Centered'); }
+    } else if (Math.abs(panX) < SNAP_THRESHOLD) {
+      if (panX !== 0) { panX = 0; showSnap('Centered H'); }
+    } else if (Math.abs(panY) < SNAP_THRESHOLD) {
+      if (panY !== 0) { panY = 0; showSnap('Centered V'); }
+    }
   }
   
   if (data) render(canvas, themeEl.value, true);
@@ -1629,6 +1770,8 @@ showCoordsEl.onchange = () => { if (data) render(canvas, themeEl.value, true); }
 fontStyleEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
 customCityEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
 customCountryEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
+cityFontSizeEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
+subtitleFontSizeEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
 
 // === INIT ===
 window.addEventListener('load', () => {
