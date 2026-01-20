@@ -1464,13 +1464,6 @@ uiClassic.onclick = () => { document.body.dataset.ui = 'classic'; uiClassic.clas
 uiDark.onclick = () => { document.body.dataset.ui = 'dark'; uiDark.classList.add('active'); uiClassic.classList.remove('active'); localStorage.setItem('ui', 'dark'); };
 if (localStorage.getItem('ui') === 'classic') uiClassic.click();
 
-// === INIT THEME DROPDOWNS ===
-Object.entries(THEMES).forEach(([k, t]) => {
-  const opt = document.createElement('option');
-  opt.value = k; opt.textContent = `${t.name} — ${t.desc}`;
-  themeEl.appendChild(opt);
-  batchTheme.appendChild(opt.cloneNode(true));
-});
 themeEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
 
 // === UTILITIES ===
@@ -1533,33 +1526,18 @@ async function fetchWater(areaId, lat, lon, radius) {
   }
 }
 
+// Batch processing helper - uses fetchStreets/fetchWater with progress callbacks
 async function fetchData(areaId, lat, lon, radius, onProgress) {
-  const types = ROAD_TYPES.join('|');
-  const useArea = !!areaId;
-  const streetQ = useArea
-    ? `[out:json][timeout:180];area(${areaId})->.a;way(area.a)["highway"~"^(${types})$"];out geom;`
-    : `[out:json][timeout:180];way["highway"~"^(${types})$"](around:${radius},${lat},${lon});out geom;`;
-  
   status('Fetching street data...', false, true);
   onProgress?.(20);
-  const streetRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: streetQ });
-  onProgress?.(50);
-  const streets = await streetRes.json();
+  const streets = await fetchStreets(areaId, lat, lon, radius);
   onProgress?.(60);
   
-  let water = { elements: [] };
-  if (waterEl.checked) {
-    status('Fetching water bodies...', false, true);
-    const waterQ = useArea
-      ? `[out:json][timeout:90];area(${areaId})->.a;(way(area.a)["natural"="water"];way(area.a)["waterway"~"river|canal|stream"];relation(area.a)["natural"="water"];);out geom;`
-      : `[out:json][timeout:90];(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream"](around:${radius},${lat},${lon}););out geom;`;
-    try {
-      onProgress?.(70);
-      const waterRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: waterQ });
-      water = await waterRes.json();
-      onProgress?.(85);
-    } catch (e) { console.warn('Water fetch failed', e); }
-  }
+  status('Fetching water bodies...', false, true);
+  onProgress?.(70);
+  const water = await fetchWater(areaId, lat, lon, radius);
+  onProgress?.(85);
+  
   onProgress?.(90);
   return { streets, water };
 }
