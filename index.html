@@ -2044,7 +2044,18 @@ subtitleFontSizeEl.oninput = () => { if (data) render(canvas, themeEl.value, tru
 
 // === INIT ===
 window.addEventListener('load', () => {
+  // Populate theme dropdown
+  themeEl.innerHTML = Object.entries(THEMES).map(([key, t]) => 
+    `<option value="${key}">${t.name} — ${t.desc}</option>`
+  ).join('');
+  
+  // Populate batch theme dropdown
+  batchTheme.innerHTML = themeEl.innerHTML;
+  
+  // Render city list
   renderCityList();
+  
+  // Auto-load Austin
   setTimeout(() => selectCity('austin'), 100);
 });
 </script>
