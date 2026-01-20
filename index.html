@@ -150,9 +150,50 @@
       overflow-y: auto;
       padding: 0 8px 8px;
     }
-    .city-item {
+    
+    /* Region Groups (Collapsible) */
+    .region-group {
+      margin-bottom: 4px;
+    }
+    .region-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       padding: 10px 12px;
+      background: var(--bg3);
       border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .region-header:hover { background: var(--border); }
+    .region-header .region-name {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text2);
+    }
+    .region-header .region-count {
+      font-size: 10px;
+      color: var(--text3);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .region-header .chevron {
+      transition: transform 0.2s;
+      font-size: 10px;
+    }
+    .region-group.collapsed .chevron { transform: rotate(-90deg); }
+    .region-group.collapsed .region-cities { display: none; }
+    .region-cities {
+      padding: 4px 0 4px 8px;
+    }
+    
+    .city-item {
+      padding: 8px 12px;
+      border-radius: 6px;
       cursor: pointer;
       transition: all 0.15s;
       margin-bottom: 2px;
@@ -164,6 +205,36 @@
     .city-item.active .name { color: #fff; }
     .city-item.active .country { color: rgba(255,255,255,0.7); }
     
+    /* Custom Dropdown Styling */
+    .custom-select {
+      position: relative;
+    }
+    .custom-select select {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 100%;
+      padding: 8px 28px 8px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .custom-select select:hover { border-color: var(--text3); }
+    .custom-select select:focus { outline: none; border-color: var(--accent); }
+    .custom-select::after {
+      content: '▾';
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: var(--text3);
+      font-size: 10px;
+    }
+    
     /* === CENTER: PREVIEW === */
     .col-preview {
       background: var(--bg);
@@ -173,14 +244,78 @@
       position: relative;
       padding: 20px;
     }
+    .canvas-wrapper {
+      position: relative;
+      display: inline-block;
+    }
     #preview {
       max-width: 100%;
       max-height: 100%;
-      border-radius: 8px;
+      border-radius: 4px;
+      border: 2px solid var(--border);
       box-shadow: 0 8px 32px rgba(0,0,0,0.3);
       cursor: grab;
     }
     #preview:active { cursor: grabbing; }
+    
+    /* Grid Overlay */
+    .grid-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      display: none;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .grid-overlay.visible { display: block; }
+    .grid-overlay .center-h,
+    .grid-overlay .center-v {
+      position: absolute;
+      background: rgba(74, 158, 255, 0.6);
+    }
+    .grid-overlay .center-h {
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 1px;
+      transform: translateY(-50%);
+    }
+    .grid-overlay .center-v {
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 1px;
+      transform: translateX(-50%);
+    }
+    .grid-overlay .grid-lines {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
+      background-size: 10% 10%;
+    }
+    
+    /* Snap indicator */
+    .snap-indicator {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 10px;
+      opacity: 0;
+      transition: opacity 0.15s;
+      pointer-events: none;
+    }
+    .snap-indicator.visible { opacity: 1; }
+    
     .zoom-controls {
       position: absolute;
       top: 16px;
@@ -205,6 +340,13 @@
       font-size: 14px;
     }
     .zoom-controls button:hover { background: var(--accent); color: #fff; }
+    .zoom-controls button.active { background: var(--accent); color: #fff; }
+    .zoom-controls .divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+      margin: 0 4px;
+    }
     .zoom-controls span {
       font-size: 11px;
       color: var(--text2);
@@ -280,14 +422,20 @@
     }
     .card select {
       width: 100%;
-      padding: 10px 12px;
+      padding: 10px 32px 10px 12px;
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 8px;
       color: var(--text);
       font-size: 13px;
       cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
     }
+    .card select:hover { border-color: var(--text3); }
     .card select:focus { outline: none; border-color: var(--accent); }
     .card input[type="text"] {
       width: 100%;
@@ -300,6 +448,120 @@
     }
     .card input:focus { outline: none; border-color: var(--accent); }
     .card input::placeholder { color: var(--text3); }
+    
+    /* Card with sub-sections */
+    .card-section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .card-section:first-child {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: none;
+    }
+    .card-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .card-row:last-child { margin-bottom: 0; }
+    .card-row .field {
+      flex: 1;
+    }
+    .card-row .field-label {
+      font-size: 9px;
+      color: var(--text3);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .card-row input[type="number"] {
+      width: 100%;
+      padding: 8px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 12px;
+    }
+    .card-row input[type="color"] {
+      width: 100%;
+      height: 32px;
+      padding: 2px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .card-row select {
+      width: 100%;
+      padding: 8px 28px 8px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 12px;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+    }
+    
+    /* Toggle row */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+    }
+    .toggle-row .toggle-label {
+      font-size: 12px;
+      color: var(--text2);
+    }
+    .toggle-switch {
+      position: relative;
+      width: 36px;
+      height: 20px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-switch .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: var(--bg3);
+      border-radius: 20px;
+      transition: 0.2s;
+      border: 1px solid var(--border);
+    }
+    .toggle-switch .slider::before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 2px;
+      bottom: 2px;
+      background: var(--text2);
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+    .toggle-switch input:checked + .slider { background: var(--accent); border-color: var(--accent); }
+    .toggle-switch input:checked + .slider::before { transform: translateX(16px); background: #fff; }
+    
+    /* Info tooltip */
+    .info-text {
+      font-size: 10px;
+      color: var(--text3);
+      line-height: 1.4;
+      margin-top: 8px;
+      padding: 8px;
+      background: var(--bg);
+      border-radius: 6px;
+    }
     
     /* Pill Toggle */
     .pill-toggle {
@@ -524,20 +786,13 @@
     <div class="city-search">
       <input type="text" id="citySearch" placeholder="Search cities...">
       <div class="city-filters">
-        <select id="regionFilter">
-          <option value="">All Regions</option>
-          <option value="North America">N. America</option>
-          <option value="South America">S. America</option>
-          <option value="Europe">Europe</option>
-          <option value="Asia">Asia</option>
-          <option value="Africa">Africa</option>
-          <option value="Oceania">Oceania</option>
-        </select>
-        <select id="sortOrder">
-          <option value="name">A → Z</option>
-          <option value="name-desc">Z → A</option>
-          <option value="country">Country</option>
-        </select>
+        <div class="custom-select">
+          <select id="sortOrder">
+            <option value="region">By Region</option>
+            <option value="name">A → Z</option>
+            <option value="name-desc">Z → A</option>
+          </select>
+        </div>
       </div>
     </div>
     <div class="city-count" id="cityCount">200+ cities</div>
@@ -551,8 +806,18 @@
       <span id="zoomLevel">100%</span>
       <button id="zoomIn">+</button>
       <button id="zoomReset" style="font-size:10px; width:auto; padding:0 10px;">Reset</button>
+      <div class="divider"></div>
+      <button id="gridToggle" title="Toggle Grid">⊞</button>
     </div>
-    <canvas id="preview"></canvas>
+    <div class="canvas-wrapper" id="canvasWrapper">
+      <canvas id="preview"></canvas>
+      <div class="grid-overlay" id="gridOverlay">
+        <div class="grid-lines"></div>
+        <div class="center-h"></div>
+        <div class="center-v"></div>
+      </div>
+      <div class="snap-indicator" id="snapIndicator">Centered</div>
+    </div>
     <div class="status-bar" id="status">Select a city to get started</div>
     <div class="progress" id="progress"><div class="progress-bar" id="progressBar"></div></div>
   </div>
@@ -560,44 +825,96 @@
   <!-- Right Column: Options -->
   <div class="col-options">
     <div class="card">
-      <div class="card-label">Theme</div>
+      <div class="card-label">Map Theme</div>
       <select id="theme"></select>
     </div>
     
     <div class="card">
-      <div class="card-label">Orientation</div>
-      <div class="pill-toggle" id="orientToggle">
-        <input type="radio" name="orient" id="orientPortrait" value="portrait" checked>
-        <label for="orientPortrait">Portrait</label>
-        <input type="radio" name="orient" id="orientLandscape" value="landscape">
-        <label for="orientLandscape">Landscape</label>
+      <div class="card-label">Format</div>
+      <div class="card-section">
+        <div class="card-row">
+          <div class="field">
+            <div class="field-label">Orientation</div>
+            <div class="pill-toggle" id="orientToggle">
+              <input type="radio" name="orient" id="orientPortrait" value="portrait" checked>
+              <label for="orientPortrait">Portrait</label>
+              <input type="radio" name="orient" id="orientLandscape" value="landscape">
+              <label for="orientLandscape">Landscape</label>
+            </div>
+          </div>
+        </div>
+        <div class="card-row">
+          <div class="field">
+            <div class="field-label">Print Size</div>
+            <div class="pill-toggle" id="sizeToggle">
+              <input type="radio" name="size" id="size5x7" value="5x7" checked>
+              <label for="size5x7">5×7"</label>
+              <input type="radio" name="size" id="size8x10" value="8x10">
+              <label for="size8x10">8×10"</label>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     
     <div class="card">
-      <div class="card-label">Size</div>
-      <div class="pill-toggle" id="sizeToggle">
-        <input type="radio" name="size" id="size5x7" value="5x7" checked>
-        <label for="size5x7">5×7"</label>
-        <input type="radio" name="size" id="size8x10" value="8x10">
-        <label for="size8x10">8×10"</label>
+      <div class="card-label">Text Options</div>
+      <div class="card-section">
+        <div class="card-row">
+          <div class="field">
+            <div class="field-label">City Name</div>
+            <input type="text" id="customCity" placeholder="Auto-detect">
+          </div>
+        </div>
+        <div class="card-row">
+          <div class="field">
+            <div class="field-label">Subtitle</div>
+            <input type="text" id="customCountry" placeholder="Auto-detect">
+          </div>
+        </div>
+        <div class="card-row">
+          <div class="field">
+            <div class="field-label">Font</div>
+            <select id="fontStyle">
+              <option value="system-ui, sans-serif">Clean Sans</option>
+              <option value="Georgia, serif">Classic Serif</option>
+              <option value="'Courier New', monospace">Typewriter</option>
+            </select>
+          </div>
+        </div>
       </div>
-    </div>
-    
-    <div class="card">
-      <div class="card-label">Display Name</div>
-      <input type="text" id="customCity" placeholder="Auto-detect">
+      <div class="card-section">
+        <div class="toggle-row">
+          <span class="toggle-label">Show Coordinates</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="showCoords" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="toggle-row">
+          <span class="toggle-label">Show Water Bodies</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="water" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
     </div>
     
     <div class="card" style="margin-top:auto;">
+      <div class="card-label">Export</div>
       <div class="card-actions">
         <button class="btn btn-primary" id="generate">Generate Preview</button>
         <div class="btn-row">
           <button class="btn btn-secondary" id="download" disabled>PNG</button>
           <button class="btn btn-secondary" id="downloadSvg" disabled>SVG</button>
         </div>
-        <div class="btn-row">
-          <button class="btn btn-secondary" id="compare" disabled>Compare</button>
+        <div class="info-text">
+          <strong>PNG</strong> — Raster image, best for printing and sharing. Fixed resolution at 300 DPI.<br>
+          <strong>SVG</strong> — Vector format, infinitely scalable. Best for large prints or editing.
+        </div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn btn-secondary" id="compare" disabled>Compare Themes</button>
           <button class="btn btn-secondary" id="batch">Batch</button>
         </div>
       </div>
@@ -606,20 +923,13 @@
 </div>
 
 <!-- Hidden elements for compatibility -->
-<input type="text" id="customCountry" style="display:none;">
 <input type="text" id="search" style="display:none;">
 <div id="results" style="display:none;"></div>
 <div id="selected" style="display:none;"></div>
 <div id="recent" style="display:none;"></div>
-<select id="fontStyle" style="display:none;"><option value="system-ui, sans-serif">Clean Sans</option></select>
-<input type="checkbox" id="water" checked style="display:none;">
-<input type="checkbox" id="showCoords" checked style="display:none;">
 <input type="range" id="roadWeight" value="1" style="display:none;">
-<span id="roadWeightVal" style="display:none;"></span>
 <input type="range" id="radius" value="10000" style="display:none;">
-<span id="radVal" style="display:none;"></span>
 <div id="themePreview" style="display:none;"></div>
-<div id="advancedCollapsible" style="display:none;"><div class="collapsible-header"></div></div>
 
 <!-- Compare Modal -->
 <div class="modal" id="modal">
@@ -705,7 +1015,8 @@ const batchTheme = $('batchTheme'), batchSize = $('batchSize'), batchStart = $('
 const batchStatus = $('batchStatus'), batchProgress = $('batchProgress'), batchProgressBar = $('batchProgressBar'), batchLog = $('batchLog');
 const uiClassic = $('uiClassic'), uiDark = $('uiDark');
 const zoomControls = $('zoomControls'), zoomIn = $('zoomIn'), zoomOut = $('zoomOut'), zoomReset = $('zoomReset'), zoomLevel = $('zoomLevel');
-const citySearchEl = $('citySearch'), regionFilter = $('regionFilter'), sortOrder = $('sortOrder');
+const gridToggle = $('gridToggle'), gridOverlay = $('gridOverlay'), snapIndicator = $('snapIndicator');
+const citySearchEl = $('citySearch'), sortOrder = $('sortOrder');
 const cityListEl = $('cityList'), cityCountEl = $('cityCount');
 
 // Region mapping
@@ -718,6 +1029,9 @@ const REGIONS = {
   'Oceania': ['Australia', 'New Zealand']
 };
 
+const REGION_ORDER = ['North America', 'Europe', 'Asia', 'South America', 'Africa', 'Oceania', 'Other'];
+let collapsedRegions = new Set();
+
 function getRegion(country) {
   for (const [region, countries] of Object.entries(REGIONS)) {
     if (countries.some(c => country.includes(c) || c.includes(country))) return region;
@@ -729,29 +1043,96 @@ function getRegion(country) {
 function renderCityList() {
   if (!CITIES) return;
   const searchTerm = citySearchEl.value.toLowerCase();
-  const region = regionFilter.value;
   const sort = sortOrder.value;
   
   let cities = Object.values(CITIES);
   if (searchTerm) cities = cities.filter(c => c.name.toLowerCase().includes(searchTerm) || c.country.toLowerCase().includes(searchTerm));
-  if (region) cities = cities.filter(c => getRegion(c.country) === region);
   
-  if (sort === 'name') cities.sort((a, b) => a.name.localeCompare(b.name));
-  else if (sort === 'name-desc') cities.sort((a, b) => b.name.localeCompare(a.name));
-  else if (sort === 'country') cities.sort((a, b) => a.country.localeCompare(b.country) || a.name.localeCompare(b.name));
+  // Group by region or sort flat
+  if (sort === 'region') {
+    // Group cities by region
+    const grouped = {};
+    cities.forEach(c => {
+      const region = getRegion(c.country);
+      if (!grouped[region]) grouped[region] = [];
+      grouped[region].push(c);
+    });
+    
+    // Sort each group alphabetically
+    Object.values(grouped).forEach(arr => arr.sort((a, b) => a.name.localeCompare(b.name)));
+    
+    // Build HTML with collapsible groups
+    let html = '';
+    let totalCount = 0;
+    REGION_ORDER.forEach(region => {
+      const regionCities = grouped[region];
+      if (!regionCities || !regionCities.length) return;
+      totalCount += regionCities.length;
+      const isCollapsed = collapsedRegions.has(region);
+      html += `
+        <div class="region-group${isCollapsed ? ' collapsed' : ''}" data-region="${region}">
+          <div class="region-header">
+            <span class="region-name">${region}</span>
+            <span class="region-count">${regionCities.length} <span class="chevron">▼</span></span>
+          </div>
+          <div class="region-cities">
+            ${regionCities.map(c => `
+              <div class="city-item" data-key="${c.name.toLowerCase().replace(/\s+/g, '-')}">
+                <div class="name">${c.name}</div>
+                <div class="country">${c.country}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    });
+    
+    cityCountEl.textContent = `${totalCount} cities`;
+    cityListEl.innerHTML = html;
+    
+    // Add region toggle handlers
+    cityListEl.querySelectorAll('.region-header').forEach(header => {
+      header.onclick = (e) => {
+        e.stopPropagation();
+        const group = header.closest('.region-group');
+        const region = group.dataset.region;
+        group.classList.toggle('collapsed');
+        if (group.classList.contains('collapsed')) collapsedRegions.add(region);
+        else collapsedRegions.delete(region);
+      };
+    });
+  } else {
+    // Flat list sorted
+    if (sort === 'name') cities.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sort === 'name-desc') cities.sort((a, b) => b.name.localeCompare(a.name));
+    
+    cityCountEl.textContent = `${cities.length} cities`;
+    cityListEl.innerHTML = cities.map(c => `
+      <div class="city-item" data-key="${c.name.toLowerCase().replace(/\s+/g, '-')}">
+        <div class="name">${c.name}</div>
+        <div class="country">${c.country}</div>
+      </div>
+    `).join('');
+  }
   
-  cityCountEl.textContent = `${cities.length} cities`;
-  cityListEl.innerHTML = cities.map(c => `
-    <div class="city-item" data-key="${c.name.toLowerCase().replace(/\s+/g, '-')}">
-      <div class="name">${c.name}</div>
-      <div class="country">${c.country}</div>
-    </div>
-  `).join('');
+  // Add city click handlers
+  cityListEl.querySelectorAll('.city-item').forEach(item => item.onclick = (e) => {
+    e.stopPropagation();
+    selectCity(item.dataset.key);
+  });
   
-  cityListEl.querySelectorAll('.city-item').forEach(item => item.onclick = () => selectCity(item.dataset.key));
+  // Highlight current city
   if (currentCity) {
     const active = cityListEl.querySelector(`[data-key="${currentCity}"]`);
-    if (active) active.classList.add('active');
+    if (active) {
+      active.classList.add('active');
+      // Expand parent region if collapsed
+      const parentGroup = active.closest('.region-group');
+      if (parentGroup && parentGroup.classList.contains('collapsed')) {
+        parentGroup.classList.remove('collapsed');
+        collapsedRegions.delete(parentGroup.dataset.region);
+      }
+    }
   }
 }
 
@@ -773,8 +1154,15 @@ function selectCity(key) {
 }
 
 citySearchEl.oninput = renderCityList;
-regionFilter.onchange = renderCityList;
 sortOrder.onchange = renderCityList;
+
+// === GRID TOGGLE ===
+let showGrid = false;
+gridToggle.onclick = () => {
+  showGrid = !showGrid;
+  gridOverlay.classList.toggle('visible', showGrid);
+  gridToggle.classList.toggle('active', showGrid);
+};
 
 // === UI THEME ===
 uiClassic.onclick = () => { document.body.dataset.ui = 'classic'; uiClassic.classList.add('active'); uiDark.classList.remove('active'); localStorage.setItem('ui', 'classic'); };
@@ -1101,9 +1489,35 @@ zoomIn.onclick = () => { zoom = Math.min(zoom * 1.2, 5); zoomLevel.textContent =
 zoomOut.onclick = () => { zoom = Math.max(zoom / 1.2, 0.5); zoomLevel.textContent = Math.round(zoom * 100) + '%'; render(canvas, themeEl.value, true); };
 zoomReset.onclick = () => { zoom = 1; panX = 0; panY = 0; zoomLevel.textContent = '100%'; render(canvas, themeEl.value, true); };
 
-let isPanning = false, lastX, lastY;
+let isPanning = false, lastX, lastY, snapTimeout;
+const SNAP_THRESHOLD = 15;
+
+function showSnap(msg) {
+  snapIndicator.textContent = msg;
+  snapIndicator.classList.add('visible');
+  clearTimeout(snapTimeout);
+  snapTimeout = setTimeout(() => snapIndicator.classList.remove('visible'), 800);
+}
+
 canvas.onmousedown = e => { isPanning = true; lastX = e.clientX; lastY = e.clientY; canvas.style.cursor = 'grabbing'; };
-document.onmousemove = e => { if (!isPanning) return; panX += e.clientX - lastX; panY += e.clientY - lastY; lastX = e.clientX; lastY = e.clientY; if (data) render(canvas, themeEl.value, true); };
+document.onmousemove = e => {
+  if (!isPanning) return;
+  panX += e.clientX - lastX;
+  panY += e.clientY - lastY;
+  lastX = e.clientX;
+  lastY = e.clientY;
+  
+  // Snap to center
+  if (Math.abs(panX) < SNAP_THRESHOLD && Math.abs(panY) < SNAP_THRESHOLD) {
+    if (panX !== 0 || panY !== 0) { panX = 0; panY = 0; showSnap('Centered'); }
+  } else if (Math.abs(panX) < SNAP_THRESHOLD) {
+    if (panX !== 0) { panX = 0; showSnap('Centered H'); }
+  } else if (Math.abs(panY) < SNAP_THRESHOLD) {
+    if (panY !== 0) { panY = 0; showSnap('Centered V'); }
+  }
+  
+  if (data) render(canvas, themeEl.value, true);
+};
 document.onmouseup = () => { isPanning = false; canvas.style.cursor = 'grab'; };
 canvas.onwheel = e => { e.preventDefault(); const d = e.deltaY > 0 ? 0.9 : 1.1; zoom = Math.min(Math.max(zoom * d, 0.5), 5); zoomLevel.textContent = Math.round(zoom * 100) + '%'; if (data) render(canvas, themeEl.value, true); };
 
@@ -1210,6 +1624,11 @@ document.onkeydown = e => { if (e.key === 'Escape') { modal.classList.remove('op
 
 // === OPTION CHANGES ===
 document.querySelectorAll('[name="size"], [name="orient"]').forEach(el => { el.onchange = () => { if (data) render(canvas, themeEl.value, true); }; });
+waterEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
+showCoordsEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
+fontStyleEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
+customCityEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
+customCountryEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
 
 // === INIT ===
 window.addEventListener('load', () => {
