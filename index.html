@@ -439,7 +439,7 @@
       box-shadow: 0 0 10px var(--accent);
     }
     
-    /* Loading overlay for initial load */
+    /* Loading overlay - comprehensive design */
     .loading-overlay {
       position: absolute;
       inset: 0;
@@ -448,31 +448,156 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 16px;
       z-index: 10;
     }
     .loading-overlay.hidden { display: none; }
-    .loading-overlay .spinner {
-      width: 32px;
-      height: 32px;
-      border-width: 3px;
+    
+    .loading-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 40px;
+      min-width: 340px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     }
-    .loading-overlay .loading-text {
-      font-size: 14px;
-      color: var(--text2);
+    
+    .loading-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
     }
-    .loading-overlay .loading-progress {
-      width: 200px;
-      height: 4px;
+    .loading-header .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .loading-header .title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    
+    /* Steps */
+    .loading-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .loading-step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .loading-step .step-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
       background: var(--bg3);
-      border-radius: 2px;
+      color: var(--text3);
+      border: 2px solid var(--border);
+      flex-shrink: 0;
+      transition: all 0.3s;
+    }
+    .loading-step.active .step-icon {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .loading-step.complete .step-icon {
+      background: #22c55e;
+      border-color: #22c55e;
+      color: #fff;
+    }
+    .loading-step .step-content {
+      flex: 1;
+    }
+    .loading-step .step-title {
+      font-size: 13px;
+      color: var(--text3);
+      transition: color 0.3s;
+    }
+    .loading-step.active .step-title,
+    .loading-step.complete .step-title {
+      color: var(--text);
+      font-weight: 500;
+    }
+    .loading-step .step-detail {
+      font-size: 11px;
+      color: var(--text3);
+      margin-top: 2px;
+    }
+    .loading-step.active .step-detail {
+      color: var(--accent);
+    }
+    
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(74, 158, 255, 0.4); }
+      50% { box-shadow: 0 0 0 8px rgba(74, 158, 255, 0); }
+    }
+    
+    /* Progress section */
+    .loading-progress-section {
+      margin-bottom: 16px;
+    }
+    .loading-progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .loading-progress-header .pct {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .loading-progress-header .stats {
+      font-size: 11px;
+      color: var(--text3);
+    }
+    .loading-progress-track {
+      height: 8px;
+      background: var(--bg3);
+      border-radius: 4px;
       overflow: hidden;
     }
-    .loading-overlay .loading-progress-bar {
+    .loading-progress-fill {
       height: 100%;
-      background: var(--accent);
+      background: linear-gradient(90deg, var(--accent), #6ab0ff);
+      border-radius: 4px;
       width: 0%;
-      transition: width 0.3s;
+      transition: width 0.4s ease-out;
+      position: relative;
+    }
+    .loading-progress-fill::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    
+    .loading-footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text3);
+    }
+    .loading-footer .tip {
+      margin-top: 4px;
+      font-style: italic;
     }
     
     /* === RIGHT COLUMN: OPTIONS === */
@@ -881,12 +1006,59 @@
   
   <!-- Center: Preview -->
   <div class="col-preview">
-    <!-- Loading overlay for initial load -->
+    <!-- Loading overlay -->
     <div class="loading-overlay" id="loadingOverlay">
-      <div class="spinner"></div>
-      <div class="loading-text" id="loadingText">Loading map data...</div>
-      <div class="loading-progress">
-        <div class="loading-progress-bar" id="loadingProgressBar"></div>
+      <div class="loading-card">
+        <div class="loading-header">
+          <div class="spinner"></div>
+          <div class="title" id="loadingCity">Generating Map...</div>
+        </div>
+        
+        <div class="loading-steps">
+          <div class="loading-step" id="step1">
+            <div class="step-icon">1</div>
+            <div class="step-content">
+              <div class="step-title">Resolving City Boundary</div>
+              <div class="step-detail" id="step1Detail">Finding city limits...</div>
+            </div>
+          </div>
+          <div class="loading-step" id="step2">
+            <div class="step-icon">2</div>
+            <div class="step-content">
+              <div class="step-title">Fetching Street Data</div>
+              <div class="step-detail" id="step2Detail">Waiting...</div>
+            </div>
+          </div>
+          <div class="loading-step" id="step3">
+            <div class="step-icon">3</div>
+            <div class="step-content">
+              <div class="step-title">Loading Water Bodies</div>
+              <div class="step-detail" id="step3Detail">Waiting...</div>
+            </div>
+          </div>
+          <div class="loading-step" id="step4">
+            <div class="step-icon">4</div>
+            <div class="step-content">
+              <div class="step-title">Rendering Preview</div>
+              <div class="step-detail" id="step4Detail">Waiting...</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="loading-progress-section">
+          <div class="loading-progress-header">
+            <span class="pct" id="loadingPct">0%</span>
+            <span class="stats" id="loadingStats"></span>
+          </div>
+          <div class="loading-progress-track">
+            <div class="loading-progress-fill" id="loadingProgressBar"></div>
+          </div>
+        </div>
+        
+        <div class="loading-footer">
+          <div id="loadingTime">Starting...</div>
+          <div class="tip">Large cities may take 10-30 seconds</div>
+        </div>
       </div>
     </div>
     
@@ -1111,7 +1283,10 @@ const batchStatus = $('batchStatus'), batchProgress = $('batchProgress'), batchP
 const uiClassic = $('uiClassic'), uiDark = $('uiDark');
 const canvasToolbar = $('canvasToolbar'), zoomIn = $('zoomIn'), zoomOut = $('zoomOut'), zoomReset = $('zoomReset'), zoomLevel = $('zoomLevel');
 const gridToggle = $('gridToggle'), gridOverlay = $('gridOverlay'), snapIndicator = $('snapIndicator'), snapToggle = $('snapToggle');
-const loadingOverlay = $('loadingOverlay'), loadingText = $('loadingText'), loadingProgressBar = $('loadingProgressBar');
+const loadingOverlay = $('loadingOverlay'), loadingProgressBar = $('loadingProgressBar');
+const loadingCity = $('loadingCity'), loadingPct = $('loadingPct'), loadingStats = $('loadingStats'), loadingTime = $('loadingTime');
+const step1 = $('step1'), step2 = $('step2'), step3 = $('step3'), step4 = $('step4');
+const step1Detail = $('step1Detail'), step2Detail = $('step2Detail'), step3Detail = $('step3Detail'), step4Detail = $('step4Detail');
 const cityFontSizeEl = $('cityFontSize'), subtitleFontSizeEl = $('subtitleFontSize');
 const citySearchEl = $('citySearch'), sortOrder = $('sortOrder');
 const cityListEl = $('cityList'), cityCountEl = $('cityCount');
@@ -1314,6 +1489,34 @@ async function fetchWithRetry(url, options, retries = 3) {
       if (res.status === 429 || res.status >= 500) { await new Promise(r => setTimeout(r, (i + 1) * 2000)); continue; }
       throw new Error(`HTTP ${res.status}`);
     } catch (e) { if (i === retries - 1) throw e; await new Promise(r => setTimeout(r, (i + 1) * 2000)); }
+  }
+}
+
+async function fetchStreets(areaId, lat, lon, radius) {
+  const types = ROAD_TYPES.join('|');
+  const useArea = !!areaId;
+  const streetQ = useArea
+    ? `[out:json][timeout:180];area(${areaId})->.a;way(area.a)["highway"~"^(${types})$"];out geom;`
+    : `[out:json][timeout:180];way["highway"~"^(${types})$"](around:${radius},${lat},${lon});out geom;`;
+  
+  const streetRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: streetQ });
+  return await streetRes.json();
+}
+
+async function fetchWater(areaId, lat, lon, radius) {
+  if (!waterEl.checked) return { elements: [] };
+  
+  const useArea = !!areaId;
+  const waterQ = useArea
+    ? `[out:json][timeout:90];area(${areaId})->.a;(way(area.a)["natural"="water"];way(area.a)["waterway"~"river|canal|stream"];relation(area.a)["natural"="water"];);out geom;`
+    : `[out:json][timeout:90];(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream"](around:${radius},${lat},${lon}););out geom;`;
+  
+  try {
+    const waterRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: waterQ });
+    return await waterRes.json();
+  } catch (e) {
+    console.warn('Water fetch failed', e);
+    return { elements: [] };
   }
 }
 
@@ -1521,6 +1724,51 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride) {
 }
 </script>
 <script>
+// === LOADING UI HELPERS ===
+let loadStartTime = 0;
+let loadingInterval = null;
+
+function resetLoadingUI() {
+  [step1, step2, step3, step4].forEach(s => {
+    s.classList.remove('active', 'complete');
+    s.querySelector('.step-icon').textContent = s.id.replace('step', '');
+  });
+  step1Detail.textContent = 'Finding city limits...';
+  step2Detail.textContent = 'Waiting...';
+  step3Detail.textContent = 'Waiting...';
+  step4Detail.textContent = 'Waiting...';
+  loadingPct.textContent = '0%';
+  loadingStats.textContent = '';
+  loadingProgressBar.style.width = '0%';
+}
+
+function setStep(num, status, detail) {
+  const stepEl = $('step' + num);
+  const detailEl = $('step' + num + 'Detail');
+  
+  if (status === 'active') {
+    stepEl.classList.add('active');
+    stepEl.classList.remove('complete');
+  } else if (status === 'complete') {
+    stepEl.classList.remove('active');
+    stepEl.classList.add('complete');
+    stepEl.querySelector('.step-icon').textContent = '✓';
+  }
+  
+  if (detail) detailEl.textContent = detail;
+}
+
+function updateLoadingProgress(pct, stats) {
+  loadingPct.textContent = Math.round(pct) + '%';
+  loadingProgressBar.style.width = pct + '%';
+  if (stats) loadingStats.textContent = stats;
+}
+
+function updateLoadingTime() {
+  const elapsed = Math.round((Date.now() - loadStartTime) / 1000);
+  loadingTime.textContent = `Elapsed: ${elapsed}s`;
+}
+
 // === GENERATE ===
 genBtn.onclick = async () => {
   if (!place) { status('Select a city first'); return; }
@@ -1533,36 +1781,57 @@ genBtn.onclick = async () => {
   
   // Show loading overlay
   loadingOverlay.classList.remove('hidden');
-  loadingProgressBar.style.width = '0%';
+  resetLoadingUI();
+  loadingCity.textContent = `Generating ${place.name || 'Map'}...`;
+  loadStartTime = Date.now();
+  loadingInterval = setInterval(updateLoadingTime, 1000);
   
   try {
-    loadingText.textContent = 'Resolving city boundary...';
-    loadingProgressBar.style.width = '5%';
+    // Step 1: Resolve boundary
+    setStep(1, 'active', 'Finding city limits...');
+    updateLoadingProgress(5);
     status('Resolving city boundary...', false, true);
     setProgress(5);
     
     let areaId = null;
     if (place.osm_type === 'relation' && place.osm_id) {
       areaId = 3600000000 + place.osm_id;
+      setStep(1, 'complete', `OSM relation ${place.osm_id}`);
+    } else {
+      setStep(1, 'complete', 'Using radius-based area');
     }
+    updateLoadingProgress(10);
     
     const radius = parseInt(radiusEl?.value || 10000);
     
-    // Update loading overlay during fetch
-    const onProgress = (pct) => {
-      setProgress(pct);
-      loadingProgressBar.style.width = pct + '%';
-      if (pct < 50) loadingText.textContent = 'Fetching street data...';
-      else if (pct < 80) loadingText.textContent = 'Fetching water bodies...';
-      else loadingText.textContent = 'Processing map data...';
-    };
+    // Step 2: Fetch streets
+    setStep(2, 'active', 'Connecting to Overpass API...');
+    updateLoadingProgress(15);
     
-    const result = await fetchData(areaId, place.lat, place.lon, radius, onProgress);
+    const streetResult = await fetchStreets(areaId, place.lat, place.lon, radius);
+    const streetCount = streetResult.elements?.length || 0;
+    setStep(2, 'complete', `${streetCount.toLocaleString()} roads loaded`);
+    updateLoadingProgress(55, `${streetCount.toLocaleString()} roads`);
+    setProgress(55);
     
-    const bounds = calcBounds(result.streets, result.water);
+    // Step 3: Fetch water
+    setStep(3, 'active', 'Fetching rivers, lakes...');
+    updateLoadingProgress(60);
+    
+    const waterResult = await fetchWater(areaId, place.lat, place.lon, radius);
+    const waterCount = waterResult.elements?.length || 0;
+    setStep(3, 'complete', `${waterCount.toLocaleString()} water features`);
+    updateLoadingProgress(85, `${streetCount.toLocaleString()} roads, ${waterCount.toLocaleString()} water`);
+    setProgress(85);
+    
+    // Step 4: Render
+    setStep(4, 'active', 'Drawing map...');
+    updateLoadingProgress(90);
+    
+    const bounds = calcBounds({ elements: streetResult.elements }, { elements: waterResult.elements });
     data = {
-      streets: result.streets,
-      water: result.water,
+      streets: { elements: streetResult.elements },
+      water: { elements: waterResult.elements },
       bounds,
       lat: place.lat,
       lon: place.lon,
@@ -1570,16 +1839,15 @@ genBtn.onclick = async () => {
       country: selectedEl.dataset.country || place.address?.country || ''
     };
     
-    loadingText.textContent = 'Rendering preview...';
-    loadingProgressBar.style.width = '95%';
-    setProgress(95);
     render(canvas, themeEl.value, true);
+    setStep(4, 'complete', 'Preview ready');
+    updateLoadingProgress(100);
     setProgress(100);
-    loadingProgressBar.style.width = '100%';
     
-    const roadCount = result.streets.elements?.length || 0;
-    const waterCount = result.water.elements?.length || 0;
-    status(`${roadCount.toLocaleString()} roads${waterCount ? `, ${waterCount.toLocaleString()} water features` : ''}`);
+    // Brief pause to show completion
+    await new Promise(r => setTimeout(r, 400));
+    
+    status(`${streetCount.toLocaleString()} roads${waterCount ? `, ${waterCount.toLocaleString()} water features` : ''}`);
     
     dlBtn.disabled = false;
     dlSvgBtn.disabled = false;
@@ -1591,6 +1859,7 @@ genBtn.onclick = async () => {
     status('Error: ' + e.message, true);
   } finally {
     genBtn.disabled = false;
+    clearInterval(loadingInterval);
     loadingOverlay.classList.add('hidden');
     setTimeout(() => setProgress(null), 500);
   }
