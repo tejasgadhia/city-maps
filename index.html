@@ -1456,9 +1456,6 @@ snapToggle.onclick = () => {
   snapEnabled = !snapEnabled;
   snapToggle.classList.toggle('active', snapEnabled);
 };
-  gridOverlay.classList.toggle('visible', showGrid);
-  gridToggle.classList.toggle('active', showGrid);
-};
 
 // === UI THEME ===
 uiClassic.onclick = () => { document.body.dataset.ui = 'classic'; uiClassic.classList.add('active'); uiDark.classList.remove('active'); localStorage.setItem('ui', 'classic'); };
