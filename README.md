@@ -14,8 +14,8 @@ Beautiful city map posters in seconds. A browser-based generator for print-ready
 
 ### 🎨 Map Generation
 - **12 unique themes** — From classic Noir to fantasy Parchment
-- **Smart city boundaries** — Uses actual city limits via OpenStreetMap relations
-- **Water bodies** — Rivers, lakes, and canals rendered beautifully
+- **Smart city boundaries** — Uses actual city limits via OpenStreetMap relations with fallbacks
+- **Water bodies** — Rivers, lakes, canals, and coastlines rendered beautifully
 - **Interactive preview** — Pan, zoom, and center your map perfectly
 
 ### 🖼️ Canvas Controls
@@ -32,6 +32,7 @@ Beautiful city map posters in seconds. A browser-based generator for print-ready
 
 ### 📤 Export Options
 - **Print-ready PNG** — 300 DPI output
+- **Vector SVG** — Infinitely scalable, ideal for large prints or editing
 - **Four sizes** — 5×7", 8×10", 11×14", 16×20" (300 DPI)
 - **Portrait & landscape** — Choose orientation
 - **Batch mode** — Generate multiple cities, download as ZIP
@@ -65,7 +66,7 @@ Beautiful city map posters in seconds. A browser-based generator for print-ready
 1. **Select a city** from the left sidebar
 2. **Customize** theme, size, and text options
 3. **Generate Preview** to see your map
-4. **Download PNG** for printing
+4. **Download PNG or SVG** for printing
 
 ## Batch Mode
 
@@ -104,7 +105,13 @@ No build step required.
 
 ## Changelog
 
-### v0.5.0 (Current)
+### v0.6.0 (Current)
+- SVG export added
+- Added 11×14" and 16×20" sizes
+- Faster previews (caching + progressive rendering)
+- Improved boundary detection and water coverage
+
+### v0.5.0
 - Step-based loading UI with progress indicators
 - Grid overlay and snap-to-center controls
 - Text size customization (city & subtitle)
