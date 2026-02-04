@@ -7,6 +7,18 @@ and [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-02-04
+### Added
+- Inline "Search any city" flow for non-listed locations
+- Export panel size/orientation selectors (always visible)
+- Onboarding hint for first-time users
+- Mobile-visible labels for map toolbar controls
+
+### Changed
+- PNG/SVG exports now respect preview pan/zoom framing
+- Water toggle auto-refetches when enabled after generation
+- SVG export no longer references an undefined road weight control
+
 ## [0.6.0] - 2026-02-04
 ### Added
 - SVG export
