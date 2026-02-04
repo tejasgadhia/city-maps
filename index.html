@@ -142,6 +142,9 @@
       gap: 6px;
     }
     .city-search .quick-search button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       padding: 10px 12px;
       border: 1px solid var(--border);
       background: var(--bg3);
@@ -153,6 +156,8 @@
       letter-spacing: 1px;
       transition: all 0.2s;
       white-space: nowrap;
+      width: 100%;
+      justify-content: center;
     }
     .city-search .quick-search button:hover { background: var(--bg); color: var(--text); }
     .city-filters {
@@ -1101,8 +1106,7 @@
     <div class="city-search">
       <input type="text" id="citySearch" placeholder="Filter listed cities...">
       <div class="quick-search">
-        <input type="text" id="cityQuickSearch" placeholder="Search any city...">
-        <button id="cityQuickBtn" type="button">Find</button>
+        <button id="citySearchOpen" type="button">Search any city...</button>
       </div>
       <div class="city-filters">
         <div class="custom-select">
@@ -1191,26 +1195,8 @@
       </div>
       <div class="divider"></div>
       <div class="toolbar-group">
-        <label>Size</label>
-        <div class="pill-mini" id="sizeToggle">
-          <input type="radio" name="size" id="size5x7" value="5x7" checked>
-          <label for="size5x7">5×7"</label>
-          <input type="radio" name="size" id="size8x10" value="8x10">
-          <label for="size8x10">8×10"</label>
-          <input type="radio" name="size" id="size11x14" value="11x14">
-          <label for="size11x14">11×14"</label>
-          <input type="radio" name="size" id="size16x20" value="16x20">
-          <label for="size16x20">16×20"</label>
-        </div>
-      </div>
-      <div class="toolbar-group">
-        <label>Orient</label>
-        <div class="pill-mini" id="orientToggle">
-          <input type="radio" name="orient" id="orientPortrait" value="portrait" checked>
-          <label for="orientPortrait">Portrait</label>
-          <input type="radio" name="orient" id="orientLandscape" value="landscape">
-          <label for="orientLandscape">Landscape</label>
-        </div>
+        <button id="textMoveToggle" title="Move Text" data-label="Move Text">T</button>
+        <button id="textReset" title="Reset Text Position" data-label="Reset Text">↺</button>
       </div>
     </div>
     
@@ -1226,7 +1212,7 @@
     <div class="preview-hint" id="previewHint">
       <div class="hint-card">
         <div class="hint-title">Create a Poster in 4 Steps</div>
-        <div class="hint-steps">1. Pick a city on the left<br>2. Choose a theme and size<br>3. Click Generate Preview<br>4. Download PNG or SVG</div>
+        <div class="hint-steps">1. Pick a city on the left<br>2. Choose a theme and size<br>3. Preview updates automatically<br>4. Download PNG or SVG</div>
       </div>
     </div>
     <div class="boundary-debug" id="boundaryDebug"></div>
@@ -1316,7 +1302,7 @@
         </div>
       </div>
       <div class="card-actions">
-        <button class="btn btn-primary" id="generate">Generate Preview</button>
+        <button class="btn btn-primary" id="generate">Regenerate Preview</button>
         <div class="btn-row">
           <button class="btn btn-secondary" id="download" disabled>PNG</button>
           <button class="btn btn-secondary" id="downloadSvg" disabled>SVG</button>
@@ -1336,6 +1322,21 @@
 
 <!-- Hidden internal state -->
 <div id="selected" style="display:none;"></div>
+
+<!-- Search Modal -->
+<div class="modal" id="searchModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="searchTitle">
+  <div class="modal-content" style="max-width:520px;">
+    <div class="modal-header">
+      <h2 id="searchTitle">SEARCH CITY</h2>
+      <button class="modal-close" id="searchClose" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom:12px; color:var(--text2); font-size:13px;">Search any city (e.g., "Paris, France")</p>
+      <input type="text" id="cityQuickSearch" placeholder="Search any city..." style="width:100%; padding:10px 12px; margin-bottom:12px; background:var(--bg); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:13px;">
+      <button class="btn btn-primary" id="cityQuickBtn" type="button" style="width:100%;">Find</button>
+    </div>
+  </div>
+</div>
 
 <!-- Compare Modal -->
 <div class="modal" id="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="compareTitle">
@@ -1438,6 +1439,11 @@ let previewLayerKey = '';
 let dataVersion = 0;
 let previewProjCache = null;
 let previewProjKey = '';
+let textOffsetX = 0, textOffsetY = 0;
+let textMoveEnabled = false;
+let lastTextBounds = null;
+let isTextDragging = false;
+let fitQueued = false;
 
 const $ = id => document.getElementById(id);
 
@@ -1457,13 +1463,16 @@ const batchStatus = $('batchStatus'), batchProgress = $('batchProgress'), batchP
 const uiClassic = $('uiClassic'), uiDark = $('uiDark');
 const canvasToolbar = $('canvasToolbar'), zoomIn = $('zoomIn'), zoomOut = $('zoomOut'), zoomReset = $('zoomReset'), zoomLevel = $('zoomLevel');
 const gridToggle = $('gridToggle'), gridOverlay = $('gridOverlay'), snapIndicator = $('snapIndicator'), snapToggle = $('snapToggle');
+const textMoveToggle = $('textMoveToggle'), textReset = $('textReset');
 const loadingOverlay = $('loadingOverlay'), loadingProgressBar = $('loadingProgressBar');
 const loadingCity = $('loadingCity'), loadingPct = $('loadingPct'), loadingStats = $('loadingStats'), loadingTime = $('loadingTime');
 const step1 = $('step1'), step2 = $('step2'), step3 = $('step3'), step4 = $('step4');
 const step1Detail = $('step1Detail'), step2Detail = $('step2Detail'), step3Detail = $('step3Detail'), step4Detail = $('step4Detail');
 const cityFontSizeEl = $('cityFontSize'), subtitleFontSizeEl = $('subtitleFontSize');
 const citySearchEl = $('citySearch'), sortOrder = $('sortOrder');
+const citySearchOpen = $('citySearchOpen');
 const cityQuickSearchEl = $('cityQuickSearch'), cityQuickBtn = $('cityQuickBtn');
+const searchModal = $('searchModal'), searchClose = $('searchClose');
 const cityListEl = $('cityList'), cityCountEl = $('cityCount');
 const sizeSelect = $('sizeSelect'), orientSelect = $('orientSelect');
 
@@ -1622,8 +1631,8 @@ function selectCity(key) {
 citySearchEl.oninput = renderCityList;
 sortOrder.onchange = renderCityList;
 
-async function runCityQuickSearch() {
-  const query = cityQuickSearchEl?.value?.trim();
+async function runCityQuickSearch(queryOverride) {
+  const query = (queryOverride ?? cityQuickSearchEl?.value)?.trim();
   if (!query) { status('Enter a city to search'); return; }
   cityQuickBtn.disabled = true;
   status(`Searching for "${query}"...`, false, true);
@@ -1635,8 +1644,9 @@ async function runCityQuickSearch() {
     if (!key) { status('City not found. Try a more specific search.', true); return; }
     citySearchEl.value = '';
     renderCityList();
-    cityQuickSearchEl.value = '';
+    if (cityQuickSearchEl) cityQuickSearchEl.value = '';
     selectCity(key);
+    if (searchModal) closeModal(searchModal);
   } catch (e) {
     status('Search failed: ' + e.message, true);
   } finally {
@@ -1649,6 +1659,9 @@ if (cityQuickBtn && cityQuickSearchEl) {
   cityQuickSearchEl.onkeydown = e => {
     if (e.key === 'Enter') { e.preventDefault(); runCityQuickSearch(); }
   };
+}
+if (citySearchOpen && searchModal) {
+  citySearchOpen.onclick = () => openModal(searchModal);
 }
 
 // === GRID TOGGLE ===
@@ -1666,6 +1679,22 @@ snapToggle.onclick = () => {
   snapToggle.classList.toggle('active', snapEnabled);
 };
 
+if (textMoveToggle) {
+  textMoveToggle.onclick = () => {
+    textMoveEnabled = !textMoveEnabled;
+    textMoveToggle.classList.toggle('active', textMoveEnabled);
+    if (!textMoveEnabled) isTextDragging = false;
+    canvas.style.cursor = textMoveEnabled ? 'move' : 'grab';
+  };
+}
+if (textReset) {
+  textReset.onclick = () => {
+    textOffsetX = 0;
+    textOffsetY = 0;
+    scheduleRender();
+  };
+}
+
 // === UI THEME ===
 uiClassic.onclick = () => { document.body.dataset.ui = 'classic'; uiClassic.classList.add('active'); uiDark.classList.remove('active'); localStorage.setItem('ui', 'classic'); };
 uiDark.onclick = () => { document.body.dataset.ui = 'dark'; uiDark.classList.add('active'); uiClassic.classList.remove('active'); localStorage.setItem('ui', 'dark'); };
@@ -1673,24 +1702,13 @@ if (localStorage.getItem('ui') === 'classic') uiClassic.click();
 
 themeEl.onchange = () => { invalidatePreviewLayer(); if (data) render(canvas, themeEl.value, true); };
 
-function syncSizeOrientUI() {
-  const sizeVal = document.querySelector('input[name="size"]:checked')?.value;
-  const orientVal = document.querySelector('input[name="orient"]:checked')?.value;
-  if (sizeSelect && sizeVal) sizeSelect.value = sizeVal;
-  if (orientSelect && orientVal) orientSelect.value = orientVal;
-}
-
 if (sizeSelect) {
   sizeSelect.onchange = () => {
-    const target = document.querySelector(`input[name="size"][value="${sizeSelect.value}"]`);
-    if (target) target.checked = true;
     if (data) render(canvas, themeEl.value, true);
   };
 }
 if (orientSelect) {
   orientSelect.onchange = () => {
-    const target = document.querySelector(`input[name="orient"][value="${orientSelect.value}"]`);
-    if (target) target.checked = true;
     if (data) render(canvas, themeEl.value, true);
   };
 }
@@ -1762,8 +1780,8 @@ function escapeOverpassRegex(value) {
 }
 
 function getSize() {
-  const sizeVal = document.querySelector('input[name="size"]:checked').value;
-  const orientVal = document.querySelector('input[name="orient"]:checked').value;
+  const sizeVal = sizeSelect?.value || '5x7';
+  const orientVal = orientSelect?.value || 'portrait';
   const [w, h] = SIZES[sizeVal][orientVal];
   return { w, h, orient: orientVal, label: sizeVal };
 }
@@ -2111,6 +2129,17 @@ function mergeBounds(a, b) {
   };
 }
 
+function mergeBoundsSafe(bounds, boundaryBounds) {
+  if (!bounds || !boundaryBounds) return mergeBounds(bounds, boundaryBounds);
+  const dataArea = Math.abs((bounds.maxLat - bounds.minLat) * (bounds.maxLon - bounds.minLon));
+  const boundaryArea = Math.abs((boundaryBounds.maxLat - boundaryBounds.minLat) * (boundaryBounds.maxLon - boundaryBounds.minLon));
+  if (Number.isFinite(dataArea) && dataArea > 0 && Number.isFinite(boundaryArea) && boundaryArea > dataArea * 6) {
+    console.warn('Boundary bounds skipped due to scale mismatch', { dataArea, boundaryArea });
+    return bounds;
+  }
+  return mergeBounds(bounds, boundaryBounds);
+}
+
 function radiusFromBounds(bounds) {
   const latSpanM = (bounds.maxLat - bounds.minLat) * 111000;
   const lonSpanM = (bounds.maxLon - bounds.minLon) * 111000 * Math.cos(((bounds.minLat + bounds.maxLat) / 2) * Math.PI / 180);
@@ -2135,6 +2164,23 @@ function getDisplayNames() {
   const city = customCityEl.value.trim() || data?.city || '';
   const country = customCountryEl.value.trim() || data?.country || '';
   return { city, country };
+}
+
+function updateAutoTextInputs() {
+  if (!data) return;
+  const autoCity = data.city || selectedEl.dataset.city || place?.name || '';
+  const autoCountry = data.country || selectedEl.dataset.country || place?.address?.country || '';
+  
+  if (customCityEl) {
+    if (!customCityEl.dataset.userEdited) customCityEl.value = autoCity;
+    customCityEl.placeholder = autoCity || 'Auto-detect';
+    customCityEl.dataset.autoValue = autoCity;
+  }
+  if (customCountryEl) {
+    if (!customCountryEl.dataset.userEdited) customCountryEl.value = autoCountry;
+    customCountryEl.placeholder = autoCountry || 'Auto-detect';
+    customCountryEl.dataset.autoValue = autoCountry;
+  }
 }
 
 function invalidatePreviewLayer() {
@@ -2403,12 +2449,20 @@ async function drawMapLayerProgressive(ctx, layout, theme, scale, roadWeight, on
   }
 }
 
+function getQualityScale(z) {
+  if (z >= 2.5) return 3;
+  if (z >= 1.7) return 2;
+  if (z >= 1.2) return 1.5;
+  return 1;
+}
+
 // === RENDER ===
 function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) {
   if (!data) return;
   const size = sizeOverride || getSize();
   const theme = THEMES[themeKey];
   let scale = scaleOverride || (isPreview ? 0.35 : 1);
+  const qualityScale = isPreview && cvs === canvas ? getQualityScale(zoom) : 1;
   const roadWeight = DEFAULT_ROAD_WEIGHT;
   const font = fontStyleEl?.value || 'system-ui, sans-serif';
   const showCoords = showCoordsEl?.checked !== false;
@@ -2436,15 +2490,17 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
   ctx.fillRect(0, 0, w, h);
   
   if (isPreview) {
-    const key = `${dataVersion}|${themeKey}|${size.label}|${size.orient}|${w}x${h}|${roadWeight}|${waterEl.checked ? 1 : 0}|${scale.toFixed(4)}`;
+    const key = `${dataVersion}|${themeKey}|${size.label}|${size.orient}|${w}x${h}|${roadWeight}|${waterEl.checked ? 1 : 0}|${scale.toFixed(4)}|q${qualityScale}`;
     if (!previewLayer || previewLayerKey !== key) {
       progressiveToken += 1;
       const token = progressiveToken;
       previewLayer = document.createElement('canvas');
-      previewLayer.width = w;
-      previewLayer.height = h;
+      previewLayer.width = Math.round(w * qualityScale);
+      previewLayer.height = Math.round(h * qualityScale);
       const pctx = previewLayer.getContext('2d');
-      pctx.clearRect(0, 0, w, h);
+      pctx.setTransform(1, 0, 0, 1, 0, 0);
+      pctx.clearRect(0, 0, previewLayer.width, previewLayer.height);
+      pctx.setTransform(qualityScale, 0, 0, qualityScale, 0, 0);
       previewProjCache = null;
       previewProjKey = '';
       const totalFeatures = data.totalFeatures ?? ((data.streets.elements || []).length + (data.water?.elements || []).length);
@@ -2473,7 +2529,8 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
       ctx.scale(zoom, zoom);
       ctx.translate(-w/2, -h/2);
     }
-    ctx.drawImage(previewLayer, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(previewLayer, 0, 0, w, h);
     ctx.restore();
   } else {
     if (mapTransform) {
@@ -2501,7 +2558,9 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
   }
   
   // Text
-  const textY = mapTop + mapH + margin * (isLandscape ? 0.6 : 0.8);
+  const baseTextY = mapTop + mapH + margin * (isLandscape ? 0.6 : 0.8);
+  const textX = w / 2 + textOffsetX * w;
+  const textY = baseTextY + textOffsetY * h;
   ctx.textAlign = 'center';
   
   // Use custom font sizes from inputs
@@ -2515,25 +2574,42 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
   let tw = 0;
   for (const c of cityUpper) tw += ctx.measureText(c).width + spacing;
   tw -= spacing;
-  let x = (w - tw) / 2;
+  let x = textX - tw / 2;
   for (const c of cityUpper) { ctx.fillText(c, x + ctx.measureText(c).width / 2, textY); x += ctx.measureText(c).width + spacing; }
   
   const lineY = textY + citySize * 0.35;
   ctx.strokeStyle = theme.text + '40'; ctx.lineWidth = scale;
-  ctx.beginPath(); ctx.moveTo(w/2 - 30*scale, lineY); ctx.lineTo(w/2 + 30*scale, lineY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(textX - 30*scale, lineY); ctx.lineTo(textX + 30*scale, lineY); ctx.stroke();
   
   const countrySize = Math.round(baseSubtitleSize * scale);
   ctx.font = `400 ${countrySize}px ${font}`;
   ctx.fillStyle = theme.text + 'cc';
-  ctx.fillText(country.toUpperCase(), w/2, lineY + countrySize * 1.4);
+  const countryUpper = country.toUpperCase();
+  ctx.fillText(countryUpper, textX, lineY + countrySize * 1.4);
+  const countryWidth = ctx.measureText(countryUpper).width;
   
+  let coordWidth = 0;
   if (showCoords) {
     const coordSize = Math.round(12 * scale);
     ctx.font = `300 ${coordSize}px ${font}`;
     ctx.fillStyle = theme.text + '88';
     const lat = data.lat, lon = data.lon;
     const coords = `${Math.abs(lat).toFixed(4)}°${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(4)}°${lon >= 0 ? 'E' : 'W'}`;
-    ctx.fillText(coords, w/2, lineY + countrySize * 1.4 + coordSize * 1.6);
+    ctx.fillText(coords, textX, lineY + countrySize * 1.4 + coordSize * 1.6);
+    coordWidth = ctx.measureText(coords).width;
+  }
+
+  // Update text bounds for drag hit-testing (preview only)
+  if (isPreview && cvs === canvas) {
+    const blockWidth = Math.max(tw, countryWidth, coordWidth);
+    const blockTop = textY - citySize;
+    const blockBottom = lineY + countrySize * 1.4 + (showCoords ? (Math.round(12 * scale) * 1.6) : 0);
+    lastTextBounds = {
+      left: textX - blockWidth / 2,
+      right: textX + blockWidth / 2,
+      top: blockTop,
+      bottom: blockBottom
+    };
   }
   
   // Draw map boundary indicator (only in preview mode)
@@ -2543,6 +2619,10 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
     ctx.setLineDash([4, 4]);
     ctx.strokeRect(margin, mapTop, mapW, mapH);
     ctx.setLineDash([]);
+  }
+
+  if (isPreview && cvs === canvas) {
+    scheduleFit();
   }
 }
 
@@ -2651,7 +2731,9 @@ function renderSvg(themeKey, sizeOverride) {
   const bgColor = expandHex(theme.bg);
   const textColor = expandHex(theme.text);
   const fadeH = h * 0.08;
-  const textY = mapTop + mapH + margin * (isLandscape ? 0.6 : 0.8);
+  const baseTextY = mapTop + mapH + margin * (isLandscape ? 0.6 : 0.8);
+  const textX = w / 2 + textOffsetX * w;
+  const textY = baseTextY + textOffsetY * h;
   const baseCitySize = parseInt(cityFontSizeEl?.value || 48);
   const baseSubtitleSize = parseInt(subtitleFontSizeEl?.value || 18);
   const citySize = Math.round(baseCitySize * (isLandscape ? 0.85 : 1));
@@ -2681,10 +2763,10 @@ function renderSvg(themeKey, sizeOverride) {
     mapGroup,
     `<rect x="0" y="0" width="${w}" height="${fadeH}" fill="url(#fadeTop)" />`,
     `<rect x="0" y="${mapTop + mapH - fadeH}" width="${w}" height="${fadeH * 1.5}" fill="url(#fadeBottom)" />`,
-    `<text x="${(w / 2).toFixed(2)}" y="${textY.toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="${citySize}" font-weight="300" letter-spacing="10" fill="${textColor}">${cityText}</text>`,
-    `<line x1="${(w / 2 - 30).toFixed(2)}" y1="${lineY.toFixed(2)}" x2="${(w / 2 + 30).toFixed(2)}" y2="${lineY.toFixed(2)}" stroke="${textColor}40" stroke-width="1" />`,
-    `<text x="${(w / 2).toFixed(2)}" y="${(lineY + countrySize * 1.4).toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="${countrySize}" font-weight="400" fill="${textColor}cc">${countryText}</text>`,
-    showCoords ? `<text x="${(w / 2).toFixed(2)}" y="${(lineY + countrySize * 1.4 + 12 * 1.6).toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="12" font-weight="300" fill="${textColor}88">${escapeXml(coords)}</text>` : '',
+    `<text x="${textX.toFixed(2)}" y="${textY.toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="${citySize}" font-weight="300" letter-spacing="10" fill="${textColor}">${cityText}</text>`,
+    `<line x1="${(textX - 30).toFixed(2)}" y1="${lineY.toFixed(2)}" x2="${(textX + 30).toFixed(2)}" y2="${lineY.toFixed(2)}" stroke="${textColor}40" stroke-width="1" />`,
+    `<text x="${textX.toFixed(2)}" y="${(lineY + countrySize * 1.4).toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="${countrySize}" font-weight="400" fill="${textColor}cc">${countryText}</text>`,
+    showCoords ? `<text x="${textX.toFixed(2)}" y="${(lineY + countrySize * 1.4 + 12 * 1.6).toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="12" font-weight="300" fill="${textColor}88">${escapeXml(coords)}</text>` : '',
     `</svg>`
   ].filter(Boolean).join('');
   
@@ -2825,7 +2907,7 @@ genBtn.onclick = async () => {
     
     const emptyData = streetCount === 0 && waterCount === 0;
     let bounds = calcBounds({ elements: streetResult.elements }, { elements: waterResult.elements });
-    bounds = mergeBounds(bounds, boundaryBounds);
+    bounds = mergeBoundsSafe(bounds, boundaryBounds);
     if (!bounds) {
       bounds = fallbackBounds(place.lat, place.lon, radius);
       status('No data returned. Rendering fallback view.', false, true);
@@ -2847,6 +2929,7 @@ genBtn.onclick = async () => {
     data.totalFeatures = data.totalRoads + data.totalWater;
     dataVersion += 1;
     invalidatePreviewLayer();
+    updateAutoTextInputs();
     
     render(canvas, themeEl.value, true);
     setStep(4, 'complete', 'Preview ready');
@@ -2863,6 +2946,7 @@ genBtn.onclick = async () => {
     dlSvgBtn.disabled = false;
     compareBtn.disabled = false;
     canvasToolbar.classList.add('visible');
+    scheduleFit();
     
   } catch (e) {
     console.error(e);
@@ -2933,6 +3017,50 @@ function scheduleRender() {
   });
 }
 
+function scheduleFit() {
+  if (fitQueued) return;
+  fitQueued = true;
+  requestAnimationFrame(() => {
+    fitQueued = false;
+    fitPreviewToViewport();
+  });
+}
+
+function fitPreviewToViewport() {
+  if (!previewRender || !canvas) return;
+  const col = document.querySelector('.col-preview');
+  const wrapper = document.getElementById('canvasWrapper');
+  if (!col || !wrapper) return;
+  
+  const rect = col.getBoundingClientRect();
+  const style = getComputedStyle(col);
+  const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+  const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+  let availW = rect.width - padX;
+  let availH = rect.height - padY;
+  
+  if (canvasToolbar && canvasToolbar.classList.contains('visible')) {
+    availH -= canvasToolbar.getBoundingClientRect().height + 12;
+  }
+  if (statusEl) {
+    availH -= statusEl.getBoundingClientRect().height + 16;
+  }
+  
+  availW = Math.max(100, availW);
+  availH = Math.max(100, availH);
+  
+  const scale = Math.min(availW / previewRender.w, availH / previewRender.h, 1);
+  const cssW = Math.round(previewRender.w * scale);
+  const cssH = Math.round(previewRender.h * scale);
+  
+  wrapper.style.width = cssW + 'px';
+  wrapper.style.height = cssH + 'px';
+  canvas.style.width = cssW + 'px';
+  canvas.style.height = cssH + 'px';
+}
+
+window.addEventListener('resize', scheduleFit);
+
 let isPanning = false, lastX, lastY, snapTimeout;
 const SNAP_THRESHOLD = 15;
 
@@ -2943,29 +3071,103 @@ function showSnap(msg) {
   snapTimeout = setTimeout(() => snapIndicator.classList.remove('visible'), 800);
 }
 
-canvas.onmousedown = e => { isPanning = true; lastX = e.clientX; lastY = e.clientY; canvas.style.cursor = 'grabbing'; };
+function applySnap() {
+  if (!snapEnabled) return;
+  let snapped = false;
+  const snapX = Math.abs(panX) < SNAP_THRESHOLD;
+  const snapY = Math.abs(panY) < SNAP_THRESHOLD;
+  if (snapX) { panX = 0; snapped = true; }
+  if (snapY) { panY = 0; snapped = true; }
+  if (snapped) showSnap(snapX && snapY ? 'Centered' : snapX ? 'Centered H' : 'Centered V');
+}
+
+function getCanvasPoint(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  return {
+    x: (e.clientX - rect.left) * scaleX,
+    y: (e.clientY - rect.top) * scaleY,
+    scaleX,
+    scaleY
+  };
+}
+
+function pointInTextBounds(x, y) {
+  if (!lastTextBounds) return false;
+  return x >= lastTextBounds.left && x <= lastTextBounds.right && y >= lastTextBounds.top && y <= lastTextBounds.bottom;
+}
+
+canvas.onmousemove = e => {
+  if (isPanning || isTextDragging) return;
+  if (textMoveEnabled && lastTextBounds) {
+    const { x, y } = getCanvasPoint(e);
+    canvas.style.cursor = pointInTextBounds(x, y) ? 'move' : 'grab';
+  } else {
+    canvas.style.cursor = 'grab';
+  }
+};
+
+canvas.onmousedown = e => {
+  const { x, y } = getCanvasPoint(e);
+  if (textMoveEnabled && pointInTextBounds(x, y)) {
+    isTextDragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    canvas.style.cursor = 'grabbing';
+    return;
+  }
+  isPanning = true;
+  lastX = e.clientX;
+  lastY = e.clientY;
+  canvas.style.cursor = 'grabbing';
+};
+
 document.onmousemove = e => {
-  if (!isPanning) return;
-  panX += e.clientX - lastX;
-  panY += e.clientY - lastY;
+  if (!isPanning && !isTextDragging) return;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const dx = (e.clientX - lastX) * scaleX;
+  const dy = (e.clientY - lastY) * scaleY;
   lastX = e.clientX;
   lastY = e.clientY;
   
-  // Snap to center (if enabled)
-  if (snapEnabled) {
-    if (Math.abs(panX) < SNAP_THRESHOLD && Math.abs(panY) < SNAP_THRESHOLD) {
-      if (panX !== 0 || panY !== 0) { panX = 0; panY = 0; showSnap('Centered'); }
-    } else if (Math.abs(panX) < SNAP_THRESHOLD) {
-      if (panX !== 0) { panX = 0; showSnap('Centered H'); }
-    } else if (Math.abs(panY) < SNAP_THRESHOLD) {
-      if (panY !== 0) { panY = 0; showSnap('Centered V'); }
-    }
+  if (isTextDragging) {
+    textOffsetX += dx / canvas.width;
+    textOffsetY += dy / canvas.height;
+    scheduleRender();
+    return;
   }
   
+  panX += dx;
+  panY += dy;
+  applySnap();
   scheduleRender();
 };
-document.onmouseup = () => { isPanning = false; canvas.style.cursor = 'grab'; };
-canvas.onwheel = e => { e.preventDefault(); const d = e.deltaY > 0 ? 0.9 : 1.1; zoom = Math.min(Math.max(zoom * d, 0.5), 5); zoomLevel.textContent = Math.round(zoom * 100) + '%'; scheduleRender(); };
+
+document.onmouseup = () => {
+  if (isPanning) applySnap();
+  isPanning = false;
+  isTextDragging = false;
+  canvas.style.cursor = textMoveEnabled ? 'move' : 'grab';
+};
+
+canvas.onwheel = e => {
+  if (!data) return;
+  e.preventDefault();
+  const { x, y } = getCanvasPoint(e);
+  const prevZoom = zoom;
+  const factor = Math.exp(-e.deltaY * 0.0015);
+  zoom = Math.min(Math.max(zoom * factor, 0.5), 5);
+  const scale = zoom / prevZoom;
+  const cx = x - canvas.width / 2;
+  const cy = y - canvas.height / 2;
+  panX = (1 - scale) * cx + scale * panX;
+  panY = (1 - scale) * cy + scale * panY;
+  zoomLevel.textContent = Math.round(zoom * 100) + '%';
+  scheduleRender();
+};
 
 // === COMPARE MODAL ===
 let lastFocusedEl = null;
@@ -3026,6 +3228,9 @@ compareBtn.onclick = () => {
   });
 };
 modalClose.onclick = () => closeModal(modal);
+if (searchClose && searchModal) {
+  searchClose.onclick = () => closeModal(searchModal);
+}
 
 // === BATCH MODAL ===
 batchBtn.onclick = () => openModal(batchModal);
@@ -3080,7 +3285,7 @@ batchStart.onclick = async () => {
       const waterFetch = await fetchWaterCached(areaId, lat, lon, batchRadius);
       const result = { streets: streetFetch.result, water: waterFetch.result };
       let bounds = calcBounds(result.streets, result.water);
-      bounds = mergeBounds(bounds, boundaryBounds);
+      bounds = mergeBoundsSafe(bounds, boundaryBounds);
       if (!bounds) bounds = fallbackBounds(lat, lon, batchRadius);
       bounds = normalizeBounds(bounds);
       
@@ -3135,16 +3340,11 @@ batchStart.onclick = async () => {
 document.onkeydown = e => {
   if (e.key !== 'Escape') return;
   if (modal.classList.contains('open')) closeModal(modal);
+  if (searchModal?.classList.contains('open')) closeModal(searchModal);
   if (batchModal.classList.contains('open')) closeModal(batchModal);
 };
 
 // === OPTION CHANGES ===
-document.querySelectorAll('[name="size"], [name="orient"]').forEach(el => {
-  el.onchange = () => {
-    syncSizeOrientUI();
-    if (data) render(canvas, themeEl.value, true);
-  };
-});
 waterEl.onchange = async () => {
   invalidatePreviewLayer();
   if (!data) return;
@@ -3156,7 +3356,7 @@ waterEl.onchange = async () => {
       data.totalWater = data.water.elements.length;
       data.totalFeatures = data.totalRoads + data.totalWater;
       let bounds = calcBounds(data.streets, data.water);
-      bounds = mergeBounds(bounds, lastFetch.boundaryBounds);
+      bounds = mergeBoundsSafe(bounds, lastFetch.boundaryBounds);
       if (bounds) data.bounds = normalizeBounds(bounds);
       dataVersion += 1;
       status(`${data.totalRoads.toLocaleString()} roads, ${data.totalWater.toLocaleString()} water features`);
@@ -3168,8 +3368,24 @@ waterEl.onchange = async () => {
 };
 showCoordsEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
 fontStyleEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
-customCityEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
-customCountryEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
+customCityEl.oninput = () => {
+  if (!customCityEl.value.trim()) {
+    delete customCityEl.dataset.userEdited;
+    updateAutoTextInputs();
+  } else {
+    customCityEl.dataset.userEdited = '1';
+  }
+  if (data) render(canvas, themeEl.value, true);
+};
+customCountryEl.oninput = () => {
+  if (!customCountryEl.value.trim()) {
+    delete customCountryEl.dataset.userEdited;
+    updateAutoTextInputs();
+  } else {
+    customCountryEl.dataset.userEdited = '1';
+  }
+  if (data) render(canvas, themeEl.value, true);
+};
 cityFontSizeEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
 subtitleFontSizeEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
 
@@ -3191,8 +3407,6 @@ window.addEventListener('load', () => {
       batchTheme.innerHTML = themeEl.innerHTML;
     }
 
-    syncSizeOrientUI();
-    
     // Render city list
     if (typeof CITIES !== 'undefined') {
       renderCityList();
