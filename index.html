@@ -137,6 +137,24 @@
     }
     .city-search input:focus { outline: none; border-color: var(--accent); }
     .city-search input::placeholder { color: var(--text3); }
+    .city-search .quick-search {
+      display: flex;
+      gap: 6px;
+    }
+    .city-search .quick-search button {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      color: var(--text2);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .city-search .quick-search button:hover { background: var(--bg); color: var(--text); }
     .city-filters {
       display: flex;
       gap: 6px;
@@ -370,7 +388,7 @@
       margin-right: 6px;
     }
     .canvas-toolbar button {
-      width: 32px;
+      min-width: 32px;
       height: 32px;
       border: none;
       background: var(--bg3);
@@ -378,10 +396,20 @@
       border-radius: 6px;
       cursor: pointer;
       font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
       transition: all 0.15s;
     }
     .canvas-toolbar button:hover { background: var(--accent); color: #fff; }
     .canvas-toolbar button.active { background: var(--accent); color: #fff; }
+    .canvas-toolbar button::after {
+      content: attr(data-label);
+      font-size: 9px;
+      letter-spacing: 0.4px;
+      display: none;
+    }
     .canvas-toolbar .divider {
       width: 1px;
       height: 24px;
@@ -478,6 +506,39 @@
       width: 0%;
       transition: width 0.3s;
       box-shadow: 0 0 10px var(--accent);
+    }
+
+    .preview-hint {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      text-align: center;
+      padding: 24px;
+      color: var(--text2);
+    }
+    .preview-hint.hidden { display: none; }
+    .preview-hint .hint-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 16px 20px;
+      border-radius: 12px;
+      max-width: 420px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+    }
+    .preview-hint .hint-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text3);
+      margin-bottom: 8px;
+    }
+    .preview-hint .hint-steps {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.5;
     }
     
     /* Loading overlay - comprehensive design */
@@ -1005,6 +1066,11 @@
     @media (max-width: 1000px) {
       .app { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr auto; }
       .col-cities, .col-options { border: none; border-bottom: 1px solid var(--border); }
+      .canvas-toolbar button {
+        height: auto;
+        padding: 6px 10px;
+      }
+      .canvas-toolbar button::after { display: inline; }
     }
     
     /* Hidden helpers */
@@ -1033,7 +1099,11 @@
       <div class="col-title">Cities</div>
     </div>
     <div class="city-search">
-      <input type="text" id="citySearch" placeholder="Search cities...">
+      <input type="text" id="citySearch" placeholder="Filter listed cities...">
+      <div class="quick-search">
+        <input type="text" id="cityQuickSearch" placeholder="Search any city...">
+        <button id="cityQuickBtn" type="button">Find</button>
+      </div>
       <div class="city-filters">
         <div class="custom-select">
           <select id="sortOrder">
@@ -1109,15 +1179,15 @@
     <!-- Canvas Toolbar -->
     <div class="canvas-toolbar" id="canvasToolbar">
       <div class="toolbar-group">
-        <button id="zoomOut" title="Zoom Out">−</button>
+        <button id="zoomOut" title="Zoom Out" data-label="Zoom Out">−</button>
         <span class="zoom-val" id="zoomLevel">100%</span>
-        <button id="zoomIn" title="Zoom In">+</button>
-        <button id="zoomReset" title="Reset View">↺</button>
+        <button id="zoomIn" title="Zoom In" data-label="Zoom In">+</button>
+        <button id="zoomReset" title="Reset View" data-label="Reset">↺</button>
       </div>
       <div class="divider"></div>
       <div class="toolbar-group">
-        <button id="gridToggle" title="Toggle Grid">⊞</button>
-        <button id="snapToggle" title="Snap to Center" class="active">◎</button>
+        <button id="gridToggle" title="Toggle Grid" data-label="Grid">⊞</button>
+        <button id="snapToggle" title="Snap to Center" data-label="Snap" class="active">◎</button>
       </div>
       <div class="divider"></div>
       <div class="toolbar-group">
@@ -1153,6 +1223,12 @@
       </div>
       <div class="snap-indicator" id="snapIndicator">Centered</div>
     </div>
+    <div class="preview-hint" id="previewHint">
+      <div class="hint-card">
+        <div class="hint-title">Create a Poster in 4 Steps</div>
+        <div class="hint-steps">1. Pick a city on the left<br>2. Choose a theme and size<br>3. Click Generate Preview<br>4. Download PNG or SVG</div>
+      </div>
+    </div>
     <div class="boundary-debug" id="boundaryDebug"></div>
     <div class="status-bar" id="status">Select a city to get started</div>
     <div class="progress" id="progress"><div class="progress-bar" id="progressBar"></div></div>
@@ -1170,7 +1246,7 @@
       <div class="card-section">
         <div class="card-row">
           <div class="field" style="flex:2;">
-            <div class="field-label">City Name</div>
+            <div class="field-label">Title</div>
             <input type="text" id="customCity" placeholder="Auto-detect">
           </div>
           <div class="field" style="flex:1;">
@@ -1180,7 +1256,7 @@
         </div>
         <div class="card-row">
           <div class="field" style="flex:2;">
-            <div class="field-label">Subtitle</div>
+            <div class="field-label">Subtitle (e.g., Country)</div>
             <input type="text" id="customCountry" placeholder="Auto-detect">
           </div>
           <div class="field" style="flex:1;">
@@ -1219,6 +1295,26 @@
     
     <div class="card" style="margin-top:auto;">
       <div class="card-label">Export</div>
+      <div class="card-section">
+        <div class="card-row">
+          <div class="field">
+            <div class="field-label">Poster Size</div>
+            <select id="sizeSelect">
+              <option value="5x7">5×7"</option>
+              <option value="8x10">8×10"</option>
+              <option value="11x14">11×14"</option>
+              <option value="16x20">16×20"</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="field-label">Orientation</div>
+            <select id="orientSelect">
+              <option value="portrait">Portrait</option>
+              <option value="landscape">Landscape</option>
+            </select>
+          </div>
+        </div>
+      </div>
       <div class="card-actions">
         <button class="btn btn-primary" id="generate">Generate Preview</button>
         <div class="btn-row">
@@ -1328,6 +1424,9 @@ const PREVIEW_FAST_THRESHOLD = 25000;
 const PREVIEW_CHUNK_SIZE = 400;
 
 let place = null, data = null, zoom = 1, panX = 0, panY = 0, currentCity = null;
+let previewRender = null;
+let lastFetch = null;
+let tempCityKey = null;
 let activeControllers = new Set();
 const STREET_CACHE = new Map();
 const WATER_CACHE = new Map();
@@ -1349,6 +1448,7 @@ const themeEl = $('theme'), waterEl = $('water'), showCoordsEl = $('showCoords')
 const fontStyleEl = $('fontStyle');
 const genBtn = $('generate'), dlBtn = $('download'), dlSvgBtn = $('downloadSvg'), compareBtn = $('compare'), batchBtn = $('batch');
 const statusEl = $('status'), boundaryDebugEl = $('boundaryDebug'), progressEl = $('progress'), progressBar = $('progressBar');
+const previewHint = $('previewHint');
 const canvas = $('preview'), offscreen = $('offscreen');
 const modal = $('modal'), modalClose = $('modalClose'), themeGrid = $('themeGrid');
 const batchModal = $('batchModal'), batchClose = $('batchClose'), batchInput = $('batchInput');
@@ -1363,7 +1463,9 @@ const step1 = $('step1'), step2 = $('step2'), step3 = $('step3'), step4 = $('ste
 const step1Detail = $('step1Detail'), step2Detail = $('step2Detail'), step3Detail = $('step3Detail'), step4Detail = $('step4Detail');
 const cityFontSizeEl = $('cityFontSize'), subtitleFontSizeEl = $('subtitleFontSize');
 const citySearchEl = $('citySearch'), sortOrder = $('sortOrder');
+const cityQuickSearchEl = $('cityQuickSearch'), cityQuickBtn = $('cityQuickBtn');
 const cityListEl = $('cityList'), cityCountEl = $('cityCount');
+const sizeSelect = $('sizeSelect'), orientSelect = $('orientSelect');
 
 // Region mapping
 const REGIONS = {
@@ -1506,7 +1608,7 @@ function selectCity(key) {
   
   currentCity = key;
   place = { lat: city.lat, lon: city.lon, osm_type: 'relation', osm_id: city.osm_id, name: city.name, address: { city: city.name, country: city.country } };
-  selectedEl.textContent = `${city.name}, ${city.country}`;
+  selectedEl.textContent = city.country ? `${city.name}, ${city.country}` : city.name;
   selectedEl.dataset.city = city.name;
   selectedEl.dataset.country = city.country;
   
@@ -1519,6 +1621,35 @@ function selectCity(key) {
 
 citySearchEl.oninput = renderCityList;
 sortOrder.onchange = renderCityList;
+
+async function runCityQuickSearch() {
+  const query = cityQuickSearchEl?.value?.trim();
+  if (!query) { status('Enter a city to search'); return; }
+  cityQuickBtn.disabled = true;
+  status(`Searching for "${query}"...`, false, true);
+  try {
+    const geo = await geocodeCity(query);
+    const feature = geo?.features?.[0];
+    if (!feature) { status('City not found. Try "City, Country".', true); return; }
+    const key = selectTempCityFromFeature(feature);
+    if (!key) { status('City not found. Try a more specific search.', true); return; }
+    citySearchEl.value = '';
+    renderCityList();
+    cityQuickSearchEl.value = '';
+    selectCity(key);
+  } catch (e) {
+    status('Search failed: ' + e.message, true);
+  } finally {
+    cityQuickBtn.disabled = false;
+  }
+}
+
+if (cityQuickBtn && cityQuickSearchEl) {
+  cityQuickBtn.onclick = () => runCityQuickSearch();
+  cityQuickSearchEl.onkeydown = e => {
+    if (e.key === 'Enter') { e.preventDefault(); runCityQuickSearch(); }
+  };
+}
 
 // === GRID TOGGLE ===
 let showGrid = false;
@@ -1542,6 +1673,28 @@ if (localStorage.getItem('ui') === 'classic') uiClassic.click();
 
 themeEl.onchange = () => { invalidatePreviewLayer(); if (data) render(canvas, themeEl.value, true); };
 
+function syncSizeOrientUI() {
+  const sizeVal = document.querySelector('input[name="size"]:checked')?.value;
+  const orientVal = document.querySelector('input[name="orient"]:checked')?.value;
+  if (sizeSelect && sizeVal) sizeSelect.value = sizeVal;
+  if (orientSelect && orientVal) orientSelect.value = orientVal;
+}
+
+if (sizeSelect) {
+  sizeSelect.onchange = () => {
+    const target = document.querySelector(`input[name="size"][value="${sizeSelect.value}"]`);
+    if (target) target.checked = true;
+    if (data) render(canvas, themeEl.value, true);
+  };
+}
+if (orientSelect) {
+  orientSelect.onchange = () => {
+    const target = document.querySelector(`input[name="orient"][value="${orientSelect.value}"]`);
+    if (target) target.checked = true;
+    if (data) render(canvas, themeEl.value, true);
+  };
+}
+
 // === UTILITIES ===
 function status(msg, err, loading) {
   statusEl.innerHTML = (loading ? '<span class="spinner"></span>' : '') + msg;
@@ -1552,6 +1705,13 @@ function setProgress(pct) {
   if (pct === null) { progressEl.classList.remove('active'); return; }
   progressEl.classList.add('active');
   progressBar.style.width = pct + '%';
+}
+
+function updatePreviewHint() {
+  if (!previewHint) return;
+  const isLoading = !loadingOverlay.classList.contains('hidden');
+  const show = !data && !isLoading;
+  previewHint.classList.toggle('hidden', !show);
 }
 
 function setBoundaryDebug(info) {
@@ -1606,6 +1766,27 @@ function getSize() {
   const orientVal = document.querySelector('input[name="orient"]:checked').value;
   const [w, h] = SIZES[sizeVal][orientVal];
   return { w, h, orient: orientVal, label: sizeVal };
+}
+
+function getExportMapTransform(size) {
+  if (!previewRender) return null;
+  if (zoom === 1 && panX === 0 && panY === 0) return null;
+  const scaleX = previewRender.w ? size.w / previewRender.w : 1;
+  const scaleY = previewRender.h ? size.h / previewRender.h : 1;
+  return {
+    zoom,
+    panX: panX * scaleX,
+    panY: panY * scaleY
+  };
+}
+
+function applyMapTransform(ctx, size, transform) {
+  if (!transform) return;
+  const cx = size.w / 2;
+  const cy = size.h / 2;
+  ctx.translate(cx + transform.panX, cy + transform.panY);
+  ctx.scale(transform.zoom, transform.zoom);
+  ctx.translate(-cx, -cy);
 }
 </script>
 <script>
@@ -1744,6 +1925,35 @@ function extractNameHintsFromPhoton(feature) {
     props.district,
     props.county
   ]);
+}
+
+async function geocodeCity(query) {
+  const cleaned = String(query || '').trim();
+  if (!cleaned) return null;
+  const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean);
+  const city = parts[0] || cleaned;
+  const country = parts.slice(1).join(', ');
+  return await fetchGeocodeCached(city, country);
+}
+
+function featureToCity(feature) {
+  if (!feature) return null;
+  const props = feature.properties || {};
+  const [lon, lat] = feature.geometry?.coordinates || [];
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const name = props.name || props.city || props.locality || props.district || props.county || 'Unknown';
+  const country = props.country || (props.countrycode ? String(props.countrycode).toUpperCase() : '') || props.state || '';
+  const osmId = props.osm_type === 'R' ? props.osm_id : null;
+  return { name, country, lat, lon, osm_id: osmId };
+}
+
+function selectTempCityFromFeature(feature) {
+  const city = featureToCity(feature);
+  if (!city) return null;
+  if (tempCityKey && CITIES[tempCityKey]) delete CITIES[tempCityKey];
+  tempCityKey = `temp-${Date.now()}`;
+  CITIES[tempCityKey] = city;
+  return tempCityKey;
 }
 
 async function fetchBoundaryRelation(lat, lon, name, country, countryCode) {
@@ -2204,6 +2414,7 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
   const showCoords = showCoordsEl?.checked !== false;
   const { city, country } = getDisplayNames();
   const ignorePanZoom = options?.ignorePanZoom === true;
+  const mapTransform = options?.mapTransform || null;
   
   if (isPreview && !scaleOverride) {
     const { w: fullW, h: fullH } = size;
@@ -2218,6 +2429,8 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
   cvs.width = w; cvs.height = h;
   const ctx = cvs.getContext('2d');
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+  if (isPreview && cvs === canvas) previewRender = { w, h, scale };
   
   ctx.fillStyle = theme.bg;
   ctx.fillRect(0, 0, w, h);
@@ -2263,7 +2476,14 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
     ctx.drawImage(previewLayer, 0, 0);
     ctx.restore();
   } else {
-    drawMapLayer(ctx, layout, theme, scale, roadWeight);
+    if (mapTransform) {
+      ctx.save();
+      applyMapTransform(ctx, { w, h }, mapTransform);
+      drawMapLayer(ctx, layout, theme, scale, roadWeight);
+      ctx.restore();
+    } else {
+      drawMapLayer(ctx, layout, theme, scale, roadWeight);
+    }
   }
   
   const bgColor = expandHex(theme.bg);
@@ -2331,10 +2551,11 @@ function renderSvg(themeKey, sizeOverride) {
   const size = sizeOverride || getSize();
   const { w, h, orient } = size;
   const theme = THEMES[themeKey];
-  const roadWeight = parseFloat(roadWeightEl?.value || 1);
+  const roadWeight = DEFAULT_ROAD_WEIGHT;
   const font = fontStyleEl?.value || 'system-ui, sans-serif';
   const showCoords = showCoordsEl?.checked !== false;
   const { city, country } = getDisplayNames();
+  const mapTransform = getExportMapTransform(size);
   
   const margin = Math.min(w, h) * 0.05;
   const isLandscape = orient === 'landscape';
@@ -2361,6 +2582,7 @@ function renderSvg(themeKey, sizeOverride) {
   ];
   
   const fmt = n => Number.isFinite(n) ? n.toFixed(SVG_PRECISION) : '0';
+  const fmtT = n => Number.isFinite(n) ? n.toFixed(2) : '0';
   const pathFromGeom = (geom, closePath) => {
     if (!geom || !geom.length) return '';
     let d = '';
@@ -2406,6 +2628,25 @@ function renderSvg(themeKey, sizeOverride) {
     });
     return d;
   });
+
+  const mapParts = [
+    waterFill.length ? `<path d="${waterFill.join('')}" fill="${theme.water}" stroke="none" />` : '',
+    waterStroke.length ? `<path d="${waterStroke.join('')}" fill="none" stroke="${theme.water}" stroke-width="${(1.5 * roadWeight).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" />` : '',
+    roadPaths.map((d, i) => d
+      ? `<path d="${d}" fill="none" stroke="${theme.roads[4 - i]}" stroke-width="${(BASE_WIDTHS[4 - i] * roadWeight).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" />`
+      : ''
+    ).join('')
+  ].filter(Boolean).join('');
+
+  let mapGroup = mapParts;
+  if (mapTransform && mapParts) {
+    const cx = w / 2;
+    const cy = h / 2;
+    const tx = cx + mapTransform.panX;
+    const ty = cy + mapTransform.panY;
+    const transform = `translate(${fmtT(tx)} ${fmtT(ty)}) scale(${mapTransform.zoom.toFixed(4)}) translate(${fmtT(-cx)} ${fmtT(-cy)})`;
+    mapGroup = `<g transform="${transform}">${mapParts}</g>`;
+  }
   
   const bgColor = expandHex(theme.bg);
   const textColor = expandHex(theme.text);
@@ -2437,12 +2678,7 @@ function renderSvg(themeKey, sizeOverride) {
     `</linearGradient>`,
     `</defs>`,
     `<rect width="100%" height="100%" fill="${bgColor}" />`,
-    waterFill.length ? `<path d="${waterFill.join('')}" fill="${theme.water}" stroke="none" />` : '',
-    waterStroke.length ? `<path d="${waterStroke.join('')}" fill="none" stroke="${theme.water}" stroke-width="${(1.5 * roadWeight).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" />` : '',
-    roadPaths.map((d, i) => d
-      ? `<path d="${d}" fill="none" stroke="${theme.roads[4 - i]}" stroke-width="${(BASE_WIDTHS[4 - i] * roadWeight).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" />`
-      : ''
-    ).join(''),
+    mapGroup,
     `<rect x="0" y="0" width="${w}" height="${fadeH}" fill="url(#fadeTop)" />`,
     `<rect x="0" y="${mapTop + mapH - fadeH}" width="${w}" height="${fadeH * 1.5}" fill="url(#fadeBottom)" />`,
     `<text x="${(w / 2).toFixed(2)}" y="${textY.toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="${citySize}" font-weight="300" letter-spacing="10" fill="${textColor}">${cityText}</text>`,
@@ -2514,6 +2750,7 @@ genBtn.onclick = async () => {
   
   // Show loading overlay
   loadingOverlay.classList.remove('hidden');
+  updatePreviewHint();
   resetLoadingUI();
   loadingCity.textContent = `Generating ${place.name || 'Map'}...`;
   loadStartTime = Date.now();
@@ -2558,6 +2795,7 @@ genBtn.onclick = async () => {
     let boundaryBounds = null;
     if (boundaryInfo?.id) boundaryBounds = await fetchBoundaryBounds(boundaryInfo.id);
     const radius = boundaryBounds ? radiusFromBounds(boundaryBounds) : DEFAULT_RADIUS;
+    lastFetch = { areaId, lat: place.lat, lon: place.lon, radius, boundaryBounds };
     
     // Step 2: Fetch streets
     setStep(2, 'active', 'Connecting to Overpass API...');
@@ -2634,6 +2872,7 @@ genBtn.onclick = async () => {
     clearInterval(loadingInterval);
     loadingOverlay.classList.add('hidden');
     setTimeout(() => setProgress(null), 500);
+    updatePreviewHint();
   }
 };
 
@@ -2646,7 +2885,8 @@ dlBtn.onclick = () => {
   
   offscreen.width = size.w;
   offscreen.height = size.h;
-  render(offscreen, themeEl.value, false);
+  const mapTransform = getExportMapTransform(size);
+  render(offscreen, themeEl.value, false, 1, size, { mapTransform });
   
   offscreen.toBlob(blob => {
     const a = document.createElement('a');
@@ -2899,8 +3139,33 @@ document.onkeydown = e => {
 };
 
 // === OPTION CHANGES ===
-document.querySelectorAll('[name="size"], [name="orient"]').forEach(el => { el.onchange = () => { if (data) render(canvas, themeEl.value, true); }; });
-waterEl.onchange = () => { invalidatePreviewLayer(); if (data) render(canvas, themeEl.value, true); };
+document.querySelectorAll('[name="size"], [name="orient"]').forEach(el => {
+  el.onchange = () => {
+    syncSizeOrientUI();
+    if (data) render(canvas, themeEl.value, true);
+  };
+});
+waterEl.onchange = async () => {
+  invalidatePreviewLayer();
+  if (!data) return;
+  if (waterEl.checked && (data.water?.elements?.length || 0) === 0 && lastFetch) {
+    status('Fetching water bodies...', false, true);
+    try {
+      const waterFetch = await fetchWaterCached(lastFetch.areaId, lastFetch.lat, lastFetch.lon, lastFetch.radius);
+      data.water = { elements: waterFetch.result.elements || [] };
+      data.totalWater = data.water.elements.length;
+      data.totalFeatures = data.totalRoads + data.totalWater;
+      let bounds = calcBounds(data.streets, data.water);
+      bounds = mergeBounds(bounds, lastFetch.boundaryBounds);
+      if (bounds) data.bounds = normalizeBounds(bounds);
+      dataVersion += 1;
+      status(`${data.totalRoads.toLocaleString()} roads, ${data.totalWater.toLocaleString()} water features`);
+    } catch (e) {
+      status('Water fetch failed: ' + e.message, true);
+    }
+  }
+  if (data) render(canvas, themeEl.value, true);
+};
 showCoordsEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
 fontStyleEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
 customCityEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
@@ -2925,6 +3190,8 @@ window.addEventListener('load', () => {
     if (batchTheme && themeEl) {
       batchTheme.innerHTML = themeEl.innerHTML;
     }
+
+    syncSizeOrientUI();
     
     // Render city list
     if (typeof CITIES !== 'undefined') {
@@ -2932,6 +3199,8 @@ window.addEventListener('load', () => {
     } else {
       console.error('CITIES not loaded');
     }
+
+    updatePreviewHint();
     
     // Auto-load Austin
     setTimeout(() => {
