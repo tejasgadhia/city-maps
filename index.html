@@ -433,6 +433,20 @@
       gap: 10px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
+    .boundary-debug {
+      position: absolute;
+      bottom: 58px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg2);
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--text3);
+      display: none;
+    }
+    body.debug .boundary-debug { display: block; }
     .status-bar.loading {
       color: var(--accent);
       background: var(--bg2);
@@ -1139,6 +1153,7 @@
       </div>
       <div class="snap-indicator" id="snapIndicator">Centered</div>
     </div>
+    <div class="boundary-debug" id="boundaryDebug"></div>
     <div class="status-bar" id="status">Select a city to get started</div>
     <div class="progress" id="progress"><div class="progress-bar" id="progressBar"></div></div>
   </div>
@@ -1333,7 +1348,7 @@ const customCityEl = $('customCity'), customCountryEl = $('customCountry');
 const themeEl = $('theme'), waterEl = $('water'), showCoordsEl = $('showCoords');
 const fontStyleEl = $('fontStyle');
 const genBtn = $('generate'), dlBtn = $('download'), dlSvgBtn = $('downloadSvg'), compareBtn = $('compare'), batchBtn = $('batch');
-const statusEl = $('status'), progressEl = $('progress'), progressBar = $('progressBar');
+const statusEl = $('status'), boundaryDebugEl = $('boundaryDebug'), progressEl = $('progress'), progressBar = $('progressBar');
 const canvas = $('preview'), offscreen = $('offscreen');
 const modal = $('modal'), modalClose = $('modalClose'), themeGrid = $('themeGrid');
 const batchModal = $('batchModal'), batchClose = $('batchClose'), batchInput = $('batchInput');
@@ -1539,6 +1554,15 @@ function setProgress(pct) {
   progressBar.style.width = pct + '%';
 }
 
+function setBoundaryDebug(info) {
+  if (!boundaryDebugEl) return;
+  if (!info) { boundaryDebugEl.textContent = 'Boundary: none'; return; }
+  const lvl = info.adminLevel ? `admin ${info.adminLevel}` : 'admin ?';
+  const score = Number.isFinite(info.score) ? `score ${info.score}` : 'score ?';
+  const name = info.name ? `name "${info.name}"` : '';
+  boundaryDebugEl.textContent = `Boundary: rel ${info.id} (${lvl}, ${score}) ${name}`.trim();
+}
+
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function abortActiveRequests() {
@@ -1650,14 +1674,14 @@ async function fetchWater(areaId, lat, lon, radius) {
   
   const useArea = !!areaId;
   const waterQ = useArea
-    ? `[out:json][timeout:90];area(${areaId})->.a;relation(area.a)["natural"="water"]->.rels;(way(area.a)["natural"="water"];way(area.a)["waterway"~"river|canal|stream|riverbank"];way(r.rels););out geom;`
-    : `[out:json][timeout:90];relation(around:${radius},${lat},${lon})["natural"="water"]->.rels;(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream|riverbank"](around:${radius},${lat},${lon});way(r.rels););out geom;`;
+    ? `[out:json][timeout:90];area(${areaId})->.a;relation(area.a)["natural"="water"]->.rels;(way(area.a)["natural"="water"];way(area.a)["waterway"~"river|canal|stream|riverbank"];way(area.a)["natural"="coastline"];way(r.rels););out geom;`
+    : `[out:json][timeout:90];relation(around:${radius},${lat},${lon})["natural"="water"]->.rels;(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream|riverbank"](around:${radius},${lat},${lon});way["natural"="coastline"](around:${radius},${lat},${lon});way(r.rels););out geom;`;
   
   try {
     const waterRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: waterQ }, 3, OVERPASS_TIMEOUT_MS);
     const waterJson = await waterRes.json();
     if (useArea && (!waterJson.elements || waterJson.elements.length === 0)) {
-      const fallbackQ = `[out:json][timeout:90];(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream|riverbank"](around:${radius},${lat},${lon}););out geom;`;
+      const fallbackQ = `[out:json][timeout:90];(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream|riverbank"](around:${radius},${lat},${lon});way["natural"="coastline"](around:${radius},${lat},${lon}););out geom;`;
       const fallbackRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: fallbackQ }, 2, OVERPASS_TIMEOUT_MS);
       return await fallbackRes.json();
     }
@@ -1696,13 +1720,41 @@ async function fetchGeocodeCached(cityName, countryName) {
   return data;
 }
 
+function uniqueNames(names) {
+  const out = [];
+  const seen = new Set();
+  names.forEach(n => {
+    const v = String(n || '').trim();
+    if (!v) return;
+    const key = v.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(v);
+  });
+  return out;
+}
+
+function extractNameHintsFromPhoton(feature) {
+  if (!feature || !feature.properties) return [];
+  const props = feature.properties;
+  return uniqueNames([
+    props.name,
+    props.city,
+    props.locality,
+    props.district,
+    props.county
+  ]);
+}
+
 async function fetchBoundaryRelation(lat, lon, name, country) {
   const key = `${name.toLowerCase()}|${(country || '').toLowerCase()}|${lat.toFixed(3)}|${lon.toFixed(3)}`;
   const cached = cacheGet(BOUNDARY_CACHE, key);
-  if (cached !== null) return cached || null;
+  if (cached !== null) {
+    if (cached === 0) return null;
+    return cached;
+  }
   if (!name) { cacheSet(BOUNDARY_CACHE, key, 0); return null; }
   
-  const safeName = escapeOverpass(name);
   const safeRegex = escapeOverpassRegex(name);
   const radius = DEFAULT_RADIUS * 3;
   const adminLevels = "2|4|6|7|8|9|10";
@@ -1726,13 +1778,28 @@ async function fetchBoundaryRelation(lat, lon, name, country) {
     };
     rels.sort((a, b) => score(a) - score(b));
     const best = rels[0];
-    cacheSet(BOUNDARY_CACHE, key, best.id);
-    return best.id;
+    const info = {
+      id: best.id,
+      adminLevel: best.tags?.admin_level || '',
+      name: best.tags?.name || best.tags?.['name:en'] || '',
+      score: score(best)
+    };
+    cacheSet(BOUNDARY_CACHE, key, info);
+    return info;
   } catch (e) {
     console.warn('Boundary resolve failed', e);
     cacheSet(BOUNDARY_CACHE, key, 0);
     return null;
   }
+}
+
+async function fetchBoundaryRelationFromNames(lat, lon, names, country) {
+  const list = uniqueNames(names);
+  for (const name of list) {
+    const info = await fetchBoundaryRelation(lat, lon, name, country);
+    if (info && info.id) return info;
+  }
+  return null;
 }
 
 async function fetchBoundaryBounds(relationId) {
@@ -2438,27 +2505,35 @@ genBtn.onclick = async () => {
     setProgress(5);
     
     let areaId = null;
-    let boundaryRelId = null;
+    let boundaryInfo = null;
     if (place.osm_type === 'relation' && place.osm_id) {
-      boundaryRelId = place.osm_id;
-      areaId = 3600000000 + place.osm_id;
+      boundaryInfo = { id: place.osm_id, adminLevel: '', name: place.name || '', score: 0 };
+      areaId = 3600000000 + boundaryInfo.id;
       setStep(1, 'complete', `OSM relation ${place.osm_id}`);
     } else {
       const nameHint = customCityEl.value.trim() || place.name || selectedEl.dataset.city || '';
       const countryHint = customCountryEl.value.trim() || place.address?.country || selectedEl.dataset.country || '';
-      const boundaryRel = await fetchBoundaryRelation(place.lat, place.lon, nameHint, countryHint);
-      if (boundaryRel) {
-        boundaryRelId = boundaryRel;
-        areaId = 3600000000 + boundaryRel;
-        setStep(1, 'complete', `Boundary relation ${boundaryRel}`);
+      boundaryInfo = await fetchBoundaryRelationFromNames(place.lat, place.lon, [nameHint], countryHint);
+      if (!boundaryInfo) {
+        try {
+          const geo = await fetchGeocodeCached(nameHint, countryHint);
+          const feature = geo.features?.[0];
+          const altNames = extractNameHintsFromPhoton(feature);
+          boundaryInfo = await fetchBoundaryRelationFromNames(place.lat, place.lon, [nameHint, ...altNames], countryHint);
+        } catch (e) { /* ignore */ }
+      }
+      if (boundaryInfo?.id) {
+        areaId = 3600000000 + boundaryInfo.id;
+        setStep(1, 'complete', `Boundary relation ${boundaryInfo.id}`);
       } else {
         setStep(1, 'complete', 'Using radius-based area');
       }
     }
+    setBoundaryDebug(boundaryInfo);
     updateLoadingProgress(10);
     
     let boundaryBounds = null;
-    if (boundaryRelId) boundaryBounds = await fetchBoundaryBounds(boundaryRelId);
+    if (boundaryInfo?.id) boundaryBounds = await fetchBoundaryBounds(boundaryInfo.id);
     const radius = boundaryBounds ? radiusFromBounds(boundaryBounds) : DEFAULT_RADIUS;
     
     // Step 2: Fetch streets
@@ -2726,15 +2801,16 @@ batchStart.onclick = async () => {
       const osmType = feature.properties.osm_type;
       
       let areaId = null;
-      let boundaryRelId = null;
-      if (osmType === 'R' && osmId) { areaId = 3600000000 + osmId; boundaryRelId = osmId; }
+      let boundaryInfo = null;
+      if (osmType === 'R' && osmId) { boundaryInfo = { id: osmId, adminLevel: '', name: cityName, score: 0 }; areaId = 3600000000 + osmId; }
       if (!areaId) {
-        const boundaryRel = await fetchBoundaryRelation(lat, lon, cityName, countryName);
-        if (boundaryRel) { areaId = 3600000000 + boundaryRel; boundaryRelId = boundaryRel; }
+        const altNames = extractNameHintsFromPhoton(feature);
+        boundaryInfo = await fetchBoundaryRelationFromNames(lat, lon, [cityName, ...altNames], countryName);
+        if (boundaryInfo?.id) areaId = 3600000000 + boundaryInfo.id;
       }
       
       let boundaryBounds = null;
-      if (boundaryRelId) boundaryBounds = await fetchBoundaryBounds(boundaryRelId);
+      if (boundaryInfo?.id) boundaryBounds = await fetchBoundaryBounds(boundaryInfo.id);
       const batchRadius = boundaryBounds ? radiusFromBounds(boundaryBounds) : DEFAULT_RADIUS;
       const streetFetch = await fetchStreetsCached(areaId, lat, lon, batchRadius);
       const waterFetch = await fetchWaterCached(areaId, lat, lon, batchRadius);
@@ -2811,6 +2887,9 @@ subtitleFontSizeEl.oninput = () => { if (data) render(canvas, themeEl.value, tru
 // === INIT ===
 window.addEventListener('load', () => {
   try {
+    const debugBoundary = new URLSearchParams(window.location.search).has('debug') || localStorage.getItem('debugBoundary') === '1';
+    if (debugBoundary) document.body.classList.add('debug');
+
     // Populate theme dropdown
     if (themeEl) {
       themeEl.innerHTML = Object.entries(THEMES).map(([key, t]) => 
