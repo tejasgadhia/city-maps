@@ -1305,6 +1305,8 @@ const CACHE_MAX_ENTRIES = 20;
 const DEFAULT_ROAD_WEIGHT = 1;
 const DEFAULT_RADIUS = 10000;
 const PREVIEW_SIMPLIFY_PX = 0.8;
+const PREVIEW_MAX_W = 1200;
+const PREVIEW_MAX_H = 1200;
 
 let place = null, data = null, zoom = 1, panX = 0, panY = 0, currentCity = null;
 let activeControllers = new Set();
@@ -1839,12 +1841,20 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
   if (!data) return;
   const size = sizeOverride || getSize();
   const theme = THEMES[themeKey];
-  const scale = scaleOverride || (isPreview ? 0.35 : 1);
+  let scale = scaleOverride || (isPreview ? 0.35 : 1);
   const roadWeight = DEFAULT_ROAD_WEIGHT;
   const font = fontStyleEl?.value || 'system-ui, sans-serif';
   const showCoords = showCoordsEl?.checked !== false;
   const { city, country } = getDisplayNames();
   const ignorePanZoom = options?.ignorePanZoom === true;
+  
+  if (isPreview && !scaleOverride) {
+    const { w: fullW, h: fullH } = size;
+    const w = Math.round(fullW * scale);
+    const h = Math.round(fullH * scale);
+    const capScale = Math.min(PREVIEW_MAX_W / w, PREVIEW_MAX_H / h, 1);
+    scale = scale * capScale;
+  }
   
   const layout = computeLayout(size, scale);
   const { w, h, margin, mapW, mapH, mapTop, isLandscape } = layout;
@@ -1856,7 +1866,7 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
   ctx.fillRect(0, 0, w, h);
   
   if (isPreview) {
-    const key = `${dataVersion}|${themeKey}|${size.label}|${size.orient}|${w}x${h}|${roadWeight}|${waterEl.checked ? 1 : 0}|${scale}`;
+    const key = `${dataVersion}|${themeKey}|${size.label}|${size.orient}|${w}x${h}|${roadWeight}|${waterEl.checked ? 1 : 0}|${scale.toFixed(4)}`;
     if (!previewLayer || previewLayerKey !== key) {
       previewLayer = document.createElement('canvas');
       previewLayer.width = w;
