@@ -1746,8 +1746,8 @@ function extractNameHintsFromPhoton(feature) {
   ]);
 }
 
-async function fetchBoundaryRelation(lat, lon, name, country) {
-  const key = `${name.toLowerCase()}|${(country || '').toLowerCase()}|${lat.toFixed(3)}|${lon.toFixed(3)}`;
+async function fetchBoundaryRelation(lat, lon, name, country, countryCode) {
+  const key = `${name.toLowerCase()}|${(country || '').toLowerCase()}|${(countryCode || '').toLowerCase()}|${lat.toFixed(3)}|${lon.toFixed(3)}`;
   const cached = cacheGet(BOUNDARY_CACHE, key);
   if (cached !== null) {
     if (cached === 0) return null;
@@ -1773,8 +1773,26 @@ async function fetchBoundaryRelation(lat, lon, name, country) {
       const lvl = parseInt(rel.tags?.admin_level || '99', 10);
       const nameTag = rel.tags?.name || rel.tags?.['name:en'] || '';
       const exact = nameTag.toLowerCase() === name.toLowerCase() ? 0 : 5;
-      const lvlScore = lvl === 8 ? 0 : lvl === 9 ? 1 : lvl === 7 ? 2 : lvl === 6 ? 3 : 4;
-      return exact * 10 + lvlScore;
+      const countryName = String(country || '').toLowerCase();
+      const nameLower = nameTag.toLowerCase();
+      const isCountryName = countryName && nameLower === countryName;
+      const lvlScore = isCountryName
+        ? (lvl === 2 ? 0 : lvl === 4 ? 1 : 2)
+        : (lvl === 8 ? 0 : lvl === 9 ? 1 : lvl === 7 ? 2 : lvl === 6 ? 3 : lvl === 4 ? 4 : 5);
+      const code = String(countryCode || '').toUpperCase();
+      const isoTags = [
+        rel.tags?.['ISO3166-1:alpha2'],
+        rel.tags?.['ISO3166-1'],
+        rel.tags?.['ISO3166-1:alpha3'],
+        rel.tags?.['addr:country'],
+        rel.tags?.['is_in:country_code'],
+        rel.tags?.['country_code']
+      ].filter(Boolean).map(v => String(v).toUpperCase());
+      const inCountry = String(rel.tags?.['is_in:country'] || rel.tags?.['addr:country'] || '').toLowerCase();
+      let countryScore = 3;
+      if (code && isoTags.some(v => v === code)) countryScore = 0;
+      else if (countryName && inCountry.includes(countryName)) countryScore = 1;
+      return exact * 10 + lvlScore + countryScore;
     };
     rels.sort((a, b) => score(a) - score(b));
     const best = rels[0];
@@ -1793,10 +1811,10 @@ async function fetchBoundaryRelation(lat, lon, name, country) {
   }
 }
 
-async function fetchBoundaryRelationFromNames(lat, lon, names, country) {
+async function fetchBoundaryRelationFromNames(lat, lon, names, country, countryCode) {
   const list = uniqueNames(names);
   for (const name of list) {
-    const info = await fetchBoundaryRelation(lat, lon, name, country);
+    const info = await fetchBoundaryRelation(lat, lon, name, country, countryCode);
     if (info && info.id) return info;
   }
   return null;
@@ -2017,6 +2035,7 @@ function buildProjectedGeometry(layout, step, minDistSq) {
   
   const waters = (data.water?.elements || []).map(el => ({
     closed: el.geometry && el.geometry.length > 1 && el.geometry[0].lat === el.geometry[el.geometry.length - 1].lat && el.geometry[0].lon === el.geometry[el.geometry.length - 1].lon,
+    coastline: el.tags?.natural === 'coastline',
     points: build(el.geometry)
   }));
   
@@ -2033,7 +2052,9 @@ function drawWater(ctx, layout, theme, scale, roadWeight, minDistSq, step) {
     ctx.beginPath();
     drawGeometry(ctx, el.geometry, proj, minDistSq, step);
     const g = el.geometry;
-    (g[0].lat === g[g.length-1].lat && g[0].lon === g[g.length-1].lon) ? ctx.fill() : ctx.stroke();
+    const isClosed = g[0].lat === g[g.length-1].lat && g[0].lon === g[g.length-1].lon;
+    const isCoastline = el.tags?.natural === 'coastline';
+    (!isCoastline && isClosed) ? ctx.fill() : ctx.stroke();
   });
 }
 
@@ -2057,7 +2078,7 @@ function drawProjectedWater(ctx, theme, scale, roadWeight, waters) {
     ctx.beginPath();
     ctx.moveTo(w.points[0], w.points[1]);
     for (let i = 2; i < w.points.length; i += 2) ctx.lineTo(w.points[i], w.points[i + 1]);
-    w.closed ? ctx.fill() : ctx.stroke();
+    (!w.coastline && w.closed) ? ctx.fill() : ctx.stroke();
   });
 }
 
@@ -2358,9 +2379,10 @@ function renderSvg(themeKey, sizeOverride) {
       if (!el.geometry) return;
       const g = el.geometry;
       const isClosed = g[0].lat === g[g.length - 1].lat && g[0].lon === g[g.length - 1].lon;
+      const isCoastline = el.tags?.natural === 'coastline';
       const d = pathFromGeom(g, isClosed);
       if (!d) return;
-      if (isClosed) waterFill.push(d);
+      if (isClosed && !isCoastline) waterFill.push(d);
       else waterStroke.push(d);
     });
   }
@@ -2513,13 +2535,14 @@ genBtn.onclick = async () => {
     } else {
       const nameHint = customCityEl.value.trim() || place.name || selectedEl.dataset.city || '';
       const countryHint = customCountryEl.value.trim() || place.address?.country || selectedEl.dataset.country || '';
-      boundaryInfo = await fetchBoundaryRelationFromNames(place.lat, place.lon, [nameHint], countryHint);
+      boundaryInfo = await fetchBoundaryRelationFromNames(place.lat, place.lon, [nameHint], countryHint, null);
       if (!boundaryInfo) {
         try {
           const geo = await fetchGeocodeCached(nameHint, countryHint);
           const feature = geo.features?.[0];
+          const countryCode = feature?.properties?.countrycode || '';
           const altNames = extractNameHintsFromPhoton(feature);
-          boundaryInfo = await fetchBoundaryRelationFromNames(place.lat, place.lon, [nameHint, ...altNames], countryHint);
+          boundaryInfo = await fetchBoundaryRelationFromNames(place.lat, place.lon, [nameHint, ...altNames], countryHint, countryCode);
         } catch (e) { /* ignore */ }
       }
       if (boundaryInfo?.id) {
@@ -2805,7 +2828,8 @@ batchStart.onclick = async () => {
       if (osmType === 'R' && osmId) { boundaryInfo = { id: osmId, adminLevel: '', name: cityName, score: 0 }; areaId = 3600000000 + osmId; }
       if (!areaId) {
         const altNames = extractNameHintsFromPhoton(feature);
-        boundaryInfo = await fetchBoundaryRelationFromNames(lat, lon, [cityName, ...altNames], countryName);
+        const countryCode = feature?.properties?.countrycode || '';
+        boundaryInfo = await fetchBoundaryRelationFromNames(lat, lon, [cityName, ...altNames], countryName, countryCode);
         if (boundaryInfo?.id) areaId = 3600000000 + boundaryInfo.id;
       }
       
