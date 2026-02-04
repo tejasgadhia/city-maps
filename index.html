@@ -1304,6 +1304,7 @@ const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 20;
 const DEFAULT_ROAD_WEIGHT = 1;
 const DEFAULT_RADIUS = 10000;
+const MAX_RADIUS = 60000;
 const PREVIEW_SIMPLIFY_PX = 0.8;
 const PREVIEW_MAX_W = 1200;
 const PREVIEW_MAX_H = 1200;
@@ -1572,6 +1573,10 @@ function escapeOverpass(value) {
   return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
+function escapeOverpassRegex(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function getSize() {
   const sizeVal = document.querySelector('input[name="size"]:checked').value;
   const orientVal = document.querySelector('input[name="orient"]:checked').value;
@@ -1698,10 +1703,12 @@ async function fetchBoundaryRelation(lat, lon, name, country) {
   if (!name) { cacheSet(BOUNDARY_CACHE, key, 0); return null; }
   
   const safeName = escapeOverpass(name);
+  const safeRegex = escapeOverpassRegex(name);
   const radius = DEFAULT_RADIUS * 3;
+  const adminLevels = "2|4|6|7|8|9|10";
   const q = `[out:json][timeout:60];(` +
-    `relation["boundary"="administrative"]["admin_level"~"6|7|8|9"]["name"="${safeName}"](around:${radius},${lat},${lon});` +
-    `relation["boundary"="administrative"]["admin_level"~"6|7|8|9"]["name:en"="${safeName}"](around:${radius},${lat},${lon});` +
+    `relation["boundary"="administrative"]["admin_level"~"${adminLevels}"]["name"~"^${safeRegex}$",i](around:${radius},${lat},${lon});` +
+    `relation["boundary"="administrative"]["admin_level"~"${adminLevels}"]["name:en"~"^${safeRegex}$",i](around:${radius},${lat},${lon});` +
     `);out tags;`;
   
   try {
@@ -1807,6 +1814,13 @@ function mergeBounds(a, b) {
     minLon: Math.min(a.minLon, b.minLon),
     maxLon: Math.max(a.maxLon, b.maxLon)
   };
+}
+
+function radiusFromBounds(bounds) {
+  const latSpanM = (bounds.maxLat - bounds.minLat) * 111000;
+  const lonSpanM = (bounds.maxLon - bounds.minLon) * 111000 * Math.cos(((bounds.minLat + bounds.maxLat) / 2) * Math.PI / 180);
+  const diag = Math.hypot(latSpanM, lonSpanM);
+  return Math.min(MAX_RADIUS, Math.max(DEFAULT_RADIUS, Math.round(diag * 0.55)));
 }
 
 function escapeXml(text) {
@@ -2443,7 +2457,9 @@ genBtn.onclick = async () => {
     }
     updateLoadingProgress(10);
     
-    const radius = DEFAULT_RADIUS;
+    let boundaryBounds = null;
+    if (boundaryRelId) boundaryBounds = await fetchBoundaryBounds(boundaryRelId);
+    const radius = boundaryBounds ? radiusFromBounds(boundaryBounds) : DEFAULT_RADIUS;
     
     // Step 2: Fetch streets
     setStep(2, 'active', 'Connecting to Overpass API...');
@@ -2473,7 +2489,6 @@ genBtn.onclick = async () => {
     
     const emptyData = streetCount === 0 && waterCount === 0;
     let bounds = calcBounds({ elements: streetResult.elements }, { elements: waterResult.elements });
-    const boundaryBounds = await fetchBoundaryBounds(boundaryRelId);
     bounds = mergeBounds(bounds, boundaryBounds);
     if (!bounds) {
       bounds = fallbackBounds(place.lat, place.lon, radius);
@@ -2718,12 +2733,13 @@ batchStart.onclick = async () => {
         if (boundaryRel) { areaId = 3600000000 + boundaryRel; boundaryRelId = boundaryRel; }
       }
       
-      const batchRadius = DEFAULT_RADIUS;
+      let boundaryBounds = null;
+      if (boundaryRelId) boundaryBounds = await fetchBoundaryBounds(boundaryRelId);
+      const batchRadius = boundaryBounds ? radiusFromBounds(boundaryBounds) : DEFAULT_RADIUS;
       const streetFetch = await fetchStreetsCached(areaId, lat, lon, batchRadius);
       const waterFetch = await fetchWaterCached(areaId, lat, lon, batchRadius);
       const result = { streets: streetFetch.result, water: waterFetch.result };
       let bounds = calcBounds(result.streets, result.water);
-      const boundaryBounds = await fetchBoundaryBounds(boundaryRelId);
       bounds = mergeBounds(bounds, boundaryBounds);
       if (!bounds) bounds = fallbackBounds(lat, lon, batchRadius);
       bounds = normalizeBounds(bounds);
