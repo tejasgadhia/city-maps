@@ -1317,6 +1317,7 @@ const STREET_CACHE = new Map();
 const WATER_CACHE = new Map();
 const GEOCODE_CACHE = new Map();
 const BOUNDARY_CACHE = new Map();
+const BOUNDARY_BOUNDS_CACHE = new Map();
 let previewLayer = null;
 let previewLayerKey = '';
 let dataVersion = 0;
@@ -1727,6 +1728,29 @@ async function fetchBoundaryRelation(lat, lon, name, country) {
   }
 }
 
+async function fetchBoundaryBounds(relationId) {
+  if (!relationId) return null;
+  const key = String(relationId);
+  const cached = cacheGet(BOUNDARY_BOUNDS_CACHE, key);
+  if (cached !== null) return cached || null;
+  
+  try {
+    const q = `[out:json][timeout:60];relation(${relationId});out bb;`;
+    const res = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: q }, 2, OVERPASS_TIMEOUT_MS);
+    const json = await res.json();
+    const rel = (json.elements || []).find(e => e.type === 'relation');
+    const bb = rel?.bounds;
+    if (!bb) { cacheSet(BOUNDARY_BOUNDS_CACHE, key, 0); return null; }
+    const bounds = { minLat: bb.minlat, maxLat: bb.maxlat, minLon: bb.minlon, maxLon: bb.maxlon };
+    cacheSet(BOUNDARY_BOUNDS_CACHE, key, bounds);
+    return bounds;
+  } catch (e) {
+    console.warn('Boundary bounds failed', e);
+    cacheSet(BOUNDARY_BOUNDS_CACHE, key, 0);
+    return null;
+  }
+}
+
 // Batch processing helper - uses fetchStreets/fetchWater with progress callbacks
 async function fetchData(areaId, lat, lon, radius, onProgress) {
   status('Fetching street data...', false, true);
@@ -1772,6 +1796,17 @@ function fallbackBounds(lat, lon, radiusM) {
   const latDelta = radiusM / 111000;
   const lonDelta = radiusM / (111000 * Math.cos(lat * Math.PI / 180) || 1);
   return { minLat: lat - latDelta, maxLat: lat + latDelta, minLon: lon - lonDelta, maxLon: lon + lonDelta };
+}
+
+function mergeBounds(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  return {
+    minLat: Math.min(a.minLat, b.minLat),
+    maxLat: Math.max(a.maxLat, b.maxLat),
+    minLon: Math.min(a.minLon, b.minLon),
+    maxLon: Math.max(a.maxLon, b.maxLon)
+  };
 }
 
 function escapeXml(text) {
@@ -2389,7 +2424,9 @@ genBtn.onclick = async () => {
     setProgress(5);
     
     let areaId = null;
+    let boundaryRelId = null;
     if (place.osm_type === 'relation' && place.osm_id) {
+      boundaryRelId = place.osm_id;
       areaId = 3600000000 + place.osm_id;
       setStep(1, 'complete', `OSM relation ${place.osm_id}`);
     } else {
@@ -2397,6 +2434,7 @@ genBtn.onclick = async () => {
       const countryHint = customCountryEl.value.trim() || place.address?.country || selectedEl.dataset.country || '';
       const boundaryRel = await fetchBoundaryRelation(place.lat, place.lon, nameHint, countryHint);
       if (boundaryRel) {
+        boundaryRelId = boundaryRel;
         areaId = 3600000000 + boundaryRel;
         setStep(1, 'complete', `Boundary relation ${boundaryRel}`);
       } else {
@@ -2435,6 +2473,8 @@ genBtn.onclick = async () => {
     
     const emptyData = streetCount === 0 && waterCount === 0;
     let bounds = calcBounds({ elements: streetResult.elements }, { elements: waterResult.elements });
+    const boundaryBounds = await fetchBoundaryBounds(boundaryRelId);
+    bounds = mergeBounds(bounds, boundaryBounds);
     if (!bounds) {
       bounds = fallbackBounds(place.lat, place.lon, radius);
       status('No data returned. Rendering fallback view.', false, true);
@@ -2671,10 +2711,11 @@ batchStart.onclick = async () => {
       const osmType = feature.properties.osm_type;
       
       let areaId = null;
-      if (osmType === 'R' && osmId) areaId = 3600000000 + osmId;
+      let boundaryRelId = null;
+      if (osmType === 'R' && osmId) { areaId = 3600000000 + osmId; boundaryRelId = osmId; }
       if (!areaId) {
         const boundaryRel = await fetchBoundaryRelation(lat, lon, cityName, countryName);
-        if (boundaryRel) areaId = 3600000000 + boundaryRel;
+        if (boundaryRel) { areaId = 3600000000 + boundaryRel; boundaryRelId = boundaryRel; }
       }
       
       const batchRadius = DEFAULT_RADIUS;
@@ -2682,6 +2723,8 @@ batchStart.onclick = async () => {
       const waterFetch = await fetchWaterCached(areaId, lat, lon, batchRadius);
       const result = { streets: streetFetch.result, water: waterFetch.result };
       let bounds = calcBounds(result.streets, result.water);
+      const boundaryBounds = await fetchBoundaryBounds(boundaryRelId);
+      bounds = mergeBounds(bounds, boundaryBounds);
       if (!bounds) bounds = fallbackBounds(lat, lon, batchRadius);
       bounds = normalizeBounds(bounds);
       
