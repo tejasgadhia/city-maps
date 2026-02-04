@@ -32,7 +32,7 @@ Beautiful city map posters in seconds. A browser-based generator for print-ready
 
 ### 📤 Export Options
 - **Print-ready PNG** — 300 DPI output
-- **Two sizes** — 5×7" (1500×2100px) or 8×10" (2400×3000px)
+- **Four sizes** — 5×7", 8×10", 11×14", 16×20" (300 DPI)
 - **Portrait & landscape** — Choose orientation
 - **Batch mode** — Generate multiple cities, download as ZIP
 - **Theme compare** — Preview all 12 themes side-by-side

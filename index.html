@@ -346,12 +346,15 @@
       display: none;
       align-items: center;
       gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
       background: var(--card);
       padding: 8px 14px;
       border-radius: 10px;
       border: 1px solid var(--border);
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
       z-index: 20;
+      max-width: calc(100% - 32px);
     }
     .canvas-toolbar.visible { display: flex; }
     .toolbar-group {
@@ -392,6 +395,8 @@
     }
     .canvas-toolbar .pill-mini {
       display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
       background: var(--bg);
       border-radius: 6px;
       padding: 2px;
@@ -399,7 +404,7 @@
     }
     .canvas-toolbar .pill-mini input { display: none; }
     .canvas-toolbar .pill-mini label {
-      padding: 6px 12px;
+      padding: 6px 10px;
       font-size: 11px;
       color: var(--text2);
       border-radius: 4px;
@@ -1108,6 +1113,10 @@
           <label for="size5x7">5×7"</label>
           <input type="radio" name="size" id="size8x10" value="8x10">
           <label for="size8x10">8×10"</label>
+          <input type="radio" name="size" id="size11x14" value="11x14">
+          <label for="size11x14">11×14"</label>
+          <input type="radio" name="size" id="size16x20" value="16x20">
+          <label for="size16x20">16×20"</label>
         </div>
       </div>
       <div class="toolbar-group">
@@ -1199,11 +1208,11 @@
         <button class="btn btn-primary" id="generate">Generate Preview</button>
         <div class="btn-row">
           <button class="btn btn-secondary" id="download" disabled>PNG</button>
-          <button class="btn btn-secondary" id="downloadSvg" disabled title="SVG export coming soon">SVG (Soon)</button>
+          <button class="btn btn-secondary" id="downloadSvg" disabled>SVG</button>
         </div>
         <div class="info-text">
           <strong>PNG</strong> — Raster image, best for printing and sharing. Fixed resolution at 300 DPI.<br>
-          <strong>SVG</strong> — Vector format. Coming soon.
+          <strong>SVG</strong> — Vector format, infinitely scalable. Best for large prints or editing.
         </div>
         <div class="btn-row" style="margin-top:8px;">
           <button class="btn btn-secondary" id="compare" disabled>Compare Themes</button>
@@ -1253,6 +1262,10 @@
           <option value="5x7-landscape">5×7" Landscape</option>
           <option value="8x10-portrait">8×10" Portrait</option>
           <option value="8x10-landscape">8×10" Landscape</option>
+          <option value="11x14-portrait">11×14" Portrait</option>
+          <option value="11x14-landscape">11×14" Landscape</option>
+          <option value="16x20-portrait">16×20" Portrait</option>
+          <option value="16x20-landscape">16×20" Landscape</option>
         </select>
         <button class="btn btn-primary" id="batchStart">Start Batch</button>
       </div>
@@ -1285,7 +1298,9 @@ const THEMES = {
 const ROAD_TYPES = ['motorway','motorway_link','trunk','trunk_link','primary','primary_link','secondary','secondary_link','tertiary','tertiary_link','residential','living_street','unclassified'];
 const SIZES = {
   '5x7': { portrait: [1500, 2100], landscape: [2100, 1500] },
-  '8x10': { portrait: [2400, 3000], landscape: [3000, 2400] }
+  '8x10': { portrait: [2400, 3000], landscape: [3000, 2400] },
+  '11x14': { portrait: [3300, 4200], landscape: [4200, 3300] },
+  '16x20': { portrait: [4800, 6000], landscape: [6000, 4800] }
 };
 const BASE_WIDTHS = [2.5, 2, 1.5, 1, 0.5];
 const FETCH_TIMEOUT_MS = 30000;
@@ -1642,6 +1657,19 @@ function fallbackBounds(lat, lon, radiusM) {
   return { minLat: lat - latDelta, maxLat: lat + latDelta, minLon: lon - lonDelta, maxLon: lon + lonDelta };
 }
 
+function escapeXml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function expandHex(hex) {
+  return hex.length === 4 ? '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3] : hex;
+}
+
 function getDisplayNames() {
   const city = customCityEl.value.trim() || data?.city || '';
   const country = customCountryEl.value.trim() || data?.country || '';
@@ -1740,7 +1768,6 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
   
   if (isPreview && !ignorePanZoom && (zoom !== 1 || panX !== 0 || panY !== 0)) ctx.setTransform(1, 0, 0, 1, 0, 0);
   
-  const expandHex = (hex) => hex.length === 4 ? '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3] : hex;
   const bgColor = expandHex(theme.bg);
   
   // Fades
@@ -1799,6 +1826,134 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
     ctx.strokeRect(margin, mapTop, mapW, mapH);
     ctx.setLineDash([]);
   }
+}
+
+function renderSvg(themeKey, sizeOverride) {
+  if (!data) return null;
+  const size = sizeOverride || getSize();
+  const { w, h, orient } = size;
+  const theme = THEMES[themeKey];
+  const roadWeight = parseFloat(roadWeightEl?.value || 1);
+  const font = fontStyleEl?.value || 'system-ui, sans-serif';
+  const showCoords = showCoordsEl?.checked !== false;
+  const { city, country } = getDisplayNames();
+  
+  const margin = Math.min(w, h) * 0.05;
+  const isLandscape = orient === 'landscape';
+  const mapW = w - margin * 2;
+  const mapH = isLandscape ? h * 0.68 : h * 0.72;
+  const mapTop = margin;
+  
+  const b = data.bounds;
+  const dataAspect = (b.maxLon - b.minLon) / (b.maxLat - b.minLat);
+  const mapAspect = mapW / mapH;
+  const adj = { ...b };
+  
+  if (dataAspect > mapAspect) {
+    const latC = (b.minLat + b.maxLat) / 2, range = (b.maxLon - b.minLon) / mapAspect;
+    adj.minLat = latC - range / 2; adj.maxLat = latC + range / 2;
+  } else {
+    const lonC = (b.minLon + b.maxLon) / 2, range = (b.maxLat - b.minLat) * mapAspect;
+    adj.minLon = lonC - range / 2; adj.maxLon = lonC + range / 2;
+  }
+  
+  const proj = (lat, lon) => [
+    margin + ((lon - adj.minLon) / (adj.maxLon - adj.minLon)) * mapW,
+    mapTop + ((adj.maxLat - lat) / (adj.maxLat - adj.minLat)) * mapH
+  ];
+  
+  const fmt = n => Number.isFinite(n) ? n.toFixed(2) : '0';
+  const pathFromGeom = (geom, closePath) => {
+    if (!geom || !geom.length) return '';
+    let d = '';
+    geom.forEach((p, i) => {
+      const [x, y] = proj(p.lat, p.lon);
+      d += (i === 0 ? 'M' : 'L') + fmt(x) + ' ' + fmt(y);
+    });
+    if (closePath) d += 'Z';
+    return d;
+  };
+  
+  const waterFill = [];
+  const waterStroke = [];
+  if (waterEl.checked && data.water?.elements) {
+    data.water.elements.forEach(el => {
+      if (!el.geometry) return;
+      const g = el.geometry;
+      const isClosed = g[0].lat === g[g.length - 1].lat && g[0].lon === g[g.length - 1].lon;
+      const d = pathFromGeom(g, isClosed);
+      if (!d) return;
+      if (isClosed) waterFill.push(d);
+      else waterStroke.push(d);
+    });
+  }
+  
+  const groups = { motorway: [], primary: [], secondary: [], tertiary: [], residential: [] };
+  (data.streets.elements || []).forEach(el => {
+    if (el.type !== 'way' || !el.geometry) return;
+    const hw = el.tags?.highway?.replace('_link', '') || '';
+    if (hw === 'motorway' || hw === 'trunk') groups.motorway.push(el);
+    else if (hw === 'primary') groups.primary.push(el);
+    else if (hw === 'secondary') groups.secondary.push(el);
+    else if (hw === 'tertiary') groups.tertiary.push(el);
+    else groups.residential.push(el);
+  });
+  
+  const roadOrder = ['residential', 'tertiary', 'secondary', 'primary', 'motorway'];
+  const roadPaths = roadOrder.map(group => {
+    let d = '';
+    groups[group].forEach(r => {
+      d += pathFromGeom(r.geometry, false);
+    });
+    return d;
+  });
+  
+  const bgColor = expandHex(theme.bg);
+  const textColor = expandHex(theme.text);
+  const fadeH = h * 0.08;
+  const textY = mapTop + mapH + margin * (isLandscape ? 0.6 : 0.8);
+  const baseCitySize = parseInt(cityFontSizeEl?.value || 48);
+  const baseSubtitleSize = parseInt(subtitleFontSizeEl?.value || 18);
+  const citySize = Math.round(baseCitySize * (isLandscape ? 0.85 : 1));
+  const countrySize = Math.round(baseSubtitleSize);
+  const lineY = textY + citySize * 0.35;
+  
+  const cityText = escapeXml((city || '').toUpperCase());
+  const countryText = escapeXml((country || '').toUpperCase());
+  const coords = showCoords
+    ? `${Math.abs(data.lat).toFixed(4)}°${data.lat >= 0 ? 'N' : 'S'}, ${Math.abs(data.lon).toFixed(4)}°${data.lon >= 0 ? 'E' : 'W'}`
+    : '';
+  
+  const svg = [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`,
+    `<defs>`,
+    `<linearGradient id="fadeTop" x1="0" y1="0" x2="0" y2="1">`,
+    `<stop offset="0%" stop-color="${bgColor}" />`,
+    `<stop offset="100%" stop-color="${bgColor}" stop-opacity="0" />`,
+    `</linearGradient>`,
+    `<linearGradient id="fadeBottom" x1="0" y1="0" x2="0" y2="1">`,
+    `<stop offset="0%" stop-color="${bgColor}" stop-opacity="0" />`,
+    `<stop offset="100%" stop-color="${bgColor}" />`,
+    `</linearGradient>`,
+    `</defs>`,
+    `<rect width="100%" height="100%" fill="${bgColor}" />`,
+    waterFill.length ? `<path d="${waterFill.join('')}" fill="${theme.water}" stroke="none" />` : '',
+    waterStroke.length ? `<path d="${waterStroke.join('')}" fill="none" stroke="${theme.water}" stroke-width="${(1.5 * roadWeight).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" />` : '',
+    roadPaths.map((d, i) => d
+      ? `<path d="${d}" fill="none" stroke="${theme.roads[4 - i]}" stroke-width="${(BASE_WIDTHS[4 - i] * roadWeight).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round" />`
+      : ''
+    ).join(''),
+    `<rect x="0" y="0" width="${w}" height="${fadeH}" fill="url(#fadeTop)" />`,
+    `<rect x="0" y="${mapTop + mapH - fadeH}" width="${w}" height="${fadeH * 1.5}" fill="url(#fadeBottom)" />`,
+    `<text x="${(w / 2).toFixed(2)}" y="${textY.toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="${citySize}" font-weight="300" letter-spacing="10" fill="${textColor}">${cityText}</text>`,
+    `<line x1="${(w / 2 - 30).toFixed(2)}" y1="${lineY.toFixed(2)}" x2="${(w / 2 + 30).toFixed(2)}" y2="${lineY.toFixed(2)}" stroke="${textColor}40" stroke-width="1" />`,
+    `<text x="${(w / 2).toFixed(2)}" y="${(lineY + countrySize * 1.4).toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="${countrySize}" font-weight="400" fill="${textColor}cc">${countryText}</text>`,
+    showCoords ? `<text x="${(w / 2).toFixed(2)}" y="${(lineY + countrySize * 1.4 + 12 * 1.6).toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="12" font-weight="300" fill="${textColor}88">${escapeXml(coords)}</text>` : '',
+    `</svg>`
+  ].filter(Boolean).join('');
+  
+  return svg;
 }
 </script>
 <script>
@@ -1937,6 +2092,7 @@ genBtn.onclick = async () => {
     else status(`${streetCount.toLocaleString()} roads${waterCount ? `, ${waterCount.toLocaleString()} water features` : ''}`);
     
     dlBtn.disabled = false;
+    dlSvgBtn.disabled = false;
     compareBtn.disabled = false;
     canvasToolbar.classList.add('visible');
     
@@ -1976,8 +2132,19 @@ dlBtn.onclick = () => {
 dlSvgBtn.onclick = () => {
   if (!data) return;
   status('Generating SVG...', false, true);
-  // SVG generation simplified for now
-  status('SVG export coming soon');
+  const { city } = getDisplayNames();
+  const size = getSize();
+  const svg = renderSvg(themeEl.value, size);
+  if (!svg) { status('SVG export failed', true); return; }
+  
+  const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+  const a = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  a.href = url;
+  a.download = `${city.toLowerCase().replace(/\s+/g, '-')}-${size.label}-${size.orient}.svg`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  status('Downloaded!');
 };
 
 // === ZOOM ===
