@@ -209,6 +209,15 @@
       transition: all 0.15s;
       margin-bottom: 2px;
     }
+    .city-item:focus-visible,
+    .region-header:focus-visible,
+    .btn:focus-visible,
+    select:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
     .city-item:hover { background: var(--bg3); }
     .city-item.active { background: var(--accent); }
     .city-item .name { font-size: 13px; font-weight: 500; }
@@ -1190,11 +1199,11 @@
         <button class="btn btn-primary" id="generate">Generate Preview</button>
         <div class="btn-row">
           <button class="btn btn-secondary" id="download" disabled>PNG</button>
-          <button class="btn btn-secondary" id="downloadSvg" disabled>SVG</button>
+          <button class="btn btn-secondary" id="downloadSvg" disabled title="SVG export coming soon">SVG (Soon)</button>
         </div>
         <div class="info-text">
           <strong>PNG</strong> — Raster image, best for printing and sharing. Fixed resolution at 300 DPI.<br>
-          <strong>SVG</strong> — Vector format, infinitely scalable. Best for large prints or editing.
+          <strong>SVG</strong> — Vector format. Coming soon.
         </div>
         <div class="btn-row" style="margin-top:8px;">
           <button class="btn btn-secondary" id="compare" disabled>Compare Themes</button>
@@ -1205,7 +1214,7 @@
   </div>
 </div>
 
-<!-- Hidden elements for compatibility -->
+<!-- Legacy hidden elements kept for compatibility with older experiments. Not used in current UI. -->
 <input type="text" id="search" style="display:none;">
 <div id="results" style="display:none;"></div>
 <div id="selected" style="display:none;"></div>
@@ -1215,11 +1224,11 @@
 <div id="themePreview" style="display:none;"></div>
 
 <!-- Compare Modal -->
-<div class="modal" id="modal">
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="compareTitle">
   <div class="modal-content">
     <div class="modal-header">
-      <h2>COMPARE THEMES</h2>
-      <button class="modal-close" id="modalClose">×</button>
+      <h2 id="compareTitle">COMPARE THEMES</h2>
+      <button class="modal-close" id="modalClose" aria-label="Close">×</button>
     </div>
     <div class="modal-body">
       <div class="theme-grid" id="themeGrid"></div>
@@ -1228,11 +1237,11 @@
 </div>
 
 <!-- Batch Modal -->
-<div class="modal" id="batchModal">
+<div class="modal" id="batchModal" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="batchTitle">
   <div class="modal-content">
     <div class="modal-header">
-      <h2>BATCH MODE</h2>
-      <button class="modal-close" id="batchClose">×</button>
+      <h2 id="batchTitle">BATCH MODE</h2>
+      <button class="modal-close" id="batchClose" aria-label="Close">×</button>
     </div>
     <div class="modal-body">
       <p style="margin-bottom:12px; color:var(--text2); font-size:13px;">Enter one city per line (e.g., "Paris, France")</p>
@@ -1279,8 +1288,12 @@ const SIZES = {
   '8x10': { portrait: [2400, 3000], landscape: [3000, 2400] }
 };
 const BASE_WIDTHS = [2.5, 2, 1.5, 1, 0.5];
+const FETCH_TIMEOUT_MS = 30000;
+const OVERPASS_TIMEOUT_MS = 60000;
+const PHOTON_TIMEOUT_MS = 15000;
 
 let place = null, data = null, zoom = 1, panX = 0, panY = 0, currentCity = null;
+let activeControllers = new Set();
 
 const $ = id => document.getElementById(id);
 
@@ -1333,7 +1346,7 @@ function renderCityList() {
   const searchTerm = citySearchEl.value.toLowerCase();
   const sort = sortOrder.value;
   
-  let cities = Object.values(CITIES);
+  let cities = Object.entries(CITIES).map(([key, c]) => ({ ...c, key }));
   if (searchTerm) cities = cities.filter(c => c.name.toLowerCase().includes(searchTerm) || c.country.toLowerCase().includes(searchTerm));
   
   // Group by region or sort flat
@@ -1359,13 +1372,13 @@ function renderCityList() {
       const isCollapsed = collapsedRegions.has(region);
       html += `
         <div class="region-group${isCollapsed ? ' collapsed' : ''}" data-region="${region}">
-          <div class="region-header">
+          <div class="region-header" role="button" tabindex="0" aria-expanded="${!isCollapsed}">
             <span class="region-name">${region}</span>
             <span class="region-count">${regionCities.length} <span class="chevron">▼</span></span>
           </div>
           <div class="region-cities">
             ${regionCities.map(c => `
-              <div class="city-item" data-key="${c.name.toLowerCase().replace(/\s+/g, '-')}">
+              <div class="city-item" data-key="${c.key}" role="button" tabindex="0">
                 <div class="name">${c.name}</div>
                 <div class="country">${c.country}</div>
               </div>
@@ -1380,13 +1393,21 @@ function renderCityList() {
     
     // Add region toggle handlers
     cityListEl.querySelectorAll('.region-header').forEach(header => {
-      header.onclick = (e) => {
+      const toggle = (e) => {
         e.stopPropagation();
         const group = header.closest('.region-group');
         const region = group.dataset.region;
         group.classList.toggle('collapsed');
         if (group.classList.contains('collapsed')) collapsedRegions.add(region);
         else collapsedRegions.delete(region);
+        header.setAttribute('aria-expanded', String(!group.classList.contains('collapsed')));
+      };
+      header.onclick = toggle;
+      header.onkeydown = (e) => {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+          e.preventDefault();
+          toggle(e);
+        }
       };
     });
   } else {
@@ -1396,7 +1417,7 @@ function renderCityList() {
     
     cityCountEl.textContent = `${cities.length} cities`;
     cityListEl.innerHTML = cities.map(c => `
-      <div class="city-item" data-key="${c.name.toLowerCase().replace(/\s+/g, '-')}">
+      <div class="city-item" data-key="${c.key}" role="button" tabindex="0">
         <div class="name">${c.name}</div>
         <div class="country">${c.country}</div>
       </div>
@@ -1404,9 +1425,17 @@ function renderCityList() {
   }
   
   // Add city click handlers
-  cityListEl.querySelectorAll('.city-item').forEach(item => item.onclick = (e) => {
-    e.stopPropagation();
-    selectCity(item.dataset.key);
+  cityListEl.querySelectorAll('.city-item').forEach(item => {
+    item.onclick = (e) => {
+      e.stopPropagation();
+      selectCity(item.dataset.key);
+    };
+    item.onkeydown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault();
+        selectCity(item.dataset.key);
+      }
+    };
   });
   
   // Highlight current city
@@ -1419,6 +1448,8 @@ function renderCityList() {
       if (parentGroup && parentGroup.classList.contains('collapsed')) {
         parentGroup.classList.remove('collapsed');
         collapsedRegions.delete(parentGroup.dataset.region);
+        const header = parentGroup.querySelector('.region-header');
+        if (header) header.setAttribute('aria-expanded', 'true');
       }
     }
   }
@@ -1478,6 +1509,13 @@ function setProgress(pct) {
   progressBar.style.width = pct + '%';
 }
 
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function abortActiveRequests() {
+  activeControllers.forEach(c => c.abort());
+  activeControllers.clear();
+}
+
 function getSize() {
   const sizeVal = document.querySelector('input[name="size"]:checked').value;
   const orientVal = document.querySelector('input[name="orient"]:checked').value;
@@ -1487,15 +1525,46 @@ function getSize() {
 </script>
 <script>
 // === FETCH DATA ===
-async function fetchWithRetry(url, options, retries = 3) {
+async function fetchWithRetry(url, options, retries = 3, timeoutMs = FETCH_TIMEOUT_MS) {
   for (let i = 0; i < retries; i++) {
+    let controller = new AbortController();
+    let timeoutId = null;
+    let didTimeout = false;
+    let onAbort = null;
+    
     try {
-      const res = await fetch(url, options);
+      if (options?.signal) {
+        onAbort = () => controller.abort();
+        if (options.signal.aborted) onAbort();
+        else options.signal.addEventListener('abort', onAbort, { once: true });
+      }
+      
+      timeoutId = setTimeout(() => { didTimeout = true; controller.abort(); }, timeoutMs);
+      activeControllers.add(controller);
+      
+      const res = await fetch(url, { ...(options || {}), signal: controller.signal });
       if (res.ok) return res;
-      if (res.status === 429 || res.status >= 500) { await new Promise(r => setTimeout(r, (i + 1) * 2000)); continue; }
+      if (res.status === 429 || res.status >= 500) { await delay((i + 1) * 2000); continue; }
       throw new Error(`HTTP ${res.status}`);
-    } catch (e) { if (i === retries - 1) throw e; await new Promise(r => setTimeout(r, (i + 1) * 2000)); }
+    } catch (e) {
+      if (e?.name === 'AbortError') {
+        const msg = didTimeout ? 'Request timed out' : 'Request canceled';
+        throw new Error(msg);
+      } else if (i === retries - 1) {
+        throw e;
+      }
+      await delay((i + 1) * 2000);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+      activeControllers.delete(controller);
+      if (options?.signal && onAbort) options.signal.removeEventListener('abort', onAbort);
+    }
   }
+}
+
+async function fetchJsonWithRetry(url, options, retries = 3, timeoutMs = FETCH_TIMEOUT_MS) {
+  const res = await fetchWithRetry(url, options, retries, timeoutMs);
+  return await res.json();
 }
 
 async function fetchStreets(areaId, lat, lon, radius) {
@@ -1505,7 +1574,7 @@ async function fetchStreets(areaId, lat, lon, radius) {
     ? `[out:json][timeout:180];area(${areaId})->.a;way(area.a)["highway"~"^(${types})$"];out geom;`
     : `[out:json][timeout:180];way["highway"~"^(${types})$"](around:${radius},${lat},${lon});out geom;`;
   
-  const streetRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: streetQ });
+  const streetRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: streetQ }, 3, OVERPASS_TIMEOUT_MS);
   return await streetRes.json();
 }
 
@@ -1514,11 +1583,11 @@ async function fetchWater(areaId, lat, lon, radius) {
   
   const useArea = !!areaId;
   const waterQ = useArea
-    ? `[out:json][timeout:90];area(${areaId})->.a;(way(area.a)["natural"="water"];way(area.a)["waterway"~"river|canal|stream"];relation(area.a)["natural"="water"];);out geom;`
-    : `[out:json][timeout:90];(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream"](around:${radius},${lat},${lon}););out geom;`;
+    ? `[out:json][timeout:90];area(${areaId})->.a;relation(area.a)["natural"="water"]->.rels;(way(area.a)["natural"="water"];way(area.a)["waterway"~"river|canal|stream"];way(r.rels););out geom;`
+    : `[out:json][timeout:90];relation(around:${radius},${lat},${lon})["natural"="water"]->.rels;(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream"](around:${radius},${lat},${lon});way(r.rels););out geom;`;
   
   try {
-    const waterRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: waterQ });
+    const waterRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: waterQ }, 3, OVERPASS_TIMEOUT_MS);
     return await waterRes.json();
   } catch (e) {
     console.warn('Water fetch failed', e);
@@ -1544,16 +1613,33 @@ async function fetchData(areaId, lat, lon, radius, onProgress) {
 
 function calcBounds(streets, water) {
   let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+  let hasPoints = false;
   const process = els => els.forEach(el => {
     (el.geometry || []).forEach(p => {
+      hasPoints = true;
       minLat = Math.min(minLat, p.lat); maxLat = Math.max(maxLat, p.lat);
       minLon = Math.min(minLon, p.lon); maxLon = Math.max(maxLon, p.lon);
     });
   });
   process(streets.elements || []);
   process(water.elements || []);
+  if (!hasPoints || !Number.isFinite(minLat) || !Number.isFinite(minLon)) return null;
   const pad = 0.05;
   return { minLat: minLat - (maxLat-minLat)*pad, maxLat: maxLat + (maxLat-minLat)*pad, minLon: minLon - (maxLon-minLon)*pad, maxLon: maxLon + (maxLon-minLon)*pad };
+}
+
+function normalizeBounds(bounds, minSpan = 0.0005) {
+  const latSpan = Math.max(bounds.maxLat - bounds.minLat, minSpan);
+  const lonSpan = Math.max(bounds.maxLon - bounds.minLon, minSpan);
+  const latC = (bounds.minLat + bounds.maxLat) / 2;
+  const lonC = (bounds.minLon + bounds.maxLon) / 2;
+  return { minLat: latC - latSpan / 2, maxLat: latC + latSpan / 2, minLon: lonC - lonSpan / 2, maxLon: lonC + lonSpan / 2 };
+}
+
+function fallbackBounds(lat, lon, radiusM) {
+  const latDelta = radiusM / 111000;
+  const lonDelta = radiusM / (111000 * Math.cos(lat * Math.PI / 180) || 1);
+  return { minLat: lat - latDelta, maxLat: lat + latDelta, minLon: lon - lonDelta, maxLon: lon + lonDelta };
 }
 
 function getDisplayNames() {
@@ -1563,7 +1649,7 @@ function getDisplayNames() {
 }
 
 // === RENDER ===
-function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride) {
+function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) {
   const size = sizeOverride || getSize();
   const { w: fullW, h: fullH, orient } = size;
   const theme = THEMES[themeKey];
@@ -1572,12 +1658,13 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride) {
   const font = fontStyleEl?.value || 'system-ui, sans-serif';
   const showCoords = showCoordsEl?.checked !== false;
   const { city, country } = getDisplayNames();
+  const ignorePanZoom = options?.ignorePanZoom === true;
   
   const w = Math.round(fullW * scale), h = Math.round(fullH * scale);
   cvs.width = w; cvs.height = h;
   const ctx = cvs.getContext('2d');
   
-  if (isPreview && (zoom !== 1 || panX !== 0 || panY !== 0)) {
+  if (isPreview && !ignorePanZoom && (zoom !== 1 || panX !== 0 || panY !== 0)) {
     ctx.translate(w/2 + panX, h/2 + panY);
     ctx.scale(zoom, zoom);
     ctx.translate(-w/2, -h/2);
@@ -1651,7 +1738,7 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride) {
     });
   });
   
-  if (isPreview && (zoom !== 1 || panX !== 0 || panY !== 0)) ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (isPreview && !ignorePanZoom && (zoom !== 1 || panX !== 0 || panY !== 0)) ctx.setTransform(1, 0, 0, 1, 0, 0);
   
   const expandHex = (hex) => hex.length === 4 ? '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3] : hex;
   const bgColor = expandHex(theme.bg);
@@ -1705,7 +1792,7 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride) {
   }
   
   // Draw map boundary indicator (only in preview mode)
-  if (isPreview && zoom === 1 && panX === 0 && panY === 0) {
+  if (isPreview && !ignorePanZoom && zoom === 1 && panX === 0 && panY === 0) {
     ctx.strokeStyle = theme.text + '20';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
@@ -1764,6 +1851,7 @@ function updateLoadingTime() {
 genBtn.onclick = async () => {
   if (!place) { status('Select a city first'); return; }
   
+  abortActiveRequests();
   genBtn.disabled = true;
   dlBtn.disabled = true;
   dlSvgBtn.disabled = true;
@@ -1819,7 +1907,14 @@ genBtn.onclick = async () => {
     setStep(4, 'active', 'Drawing map...');
     updateLoadingProgress(90);
     
-    const bounds = calcBounds({ elements: streetResult.elements }, { elements: waterResult.elements });
+    const emptyData = streetCount === 0 && waterCount === 0;
+    let bounds = calcBounds({ elements: streetResult.elements }, { elements: waterResult.elements });
+    if (!bounds) {
+      bounds = fallbackBounds(place.lat, place.lon, radius);
+      status('No data returned. Rendering fallback view.', false, true);
+      setStep(4, 'active', 'Rendering fallback...');
+    }
+    bounds = normalizeBounds(bounds);
     data = {
       streets: { elements: streetResult.elements },
       water: { elements: waterResult.elements },
@@ -1838,10 +1933,10 @@ genBtn.onclick = async () => {
     // Brief pause to show completion
     await new Promise(r => setTimeout(r, 400));
     
-    status(`${streetCount.toLocaleString()} roads${waterCount ? `, ${waterCount.toLocaleString()} water features` : ''}`);
+    if (emptyData) status('No streets or water found. Showing fallback bounds.');
+    else status(`${streetCount.toLocaleString()} roads${waterCount ? `, ${waterCount.toLocaleString()} water features` : ''}`);
     
     dlBtn.disabled = false;
-    dlSvgBtn.disabled = false;
     compareBtn.disabled = false;
     canvasToolbar.classList.add('visible');
     
@@ -1869,9 +1964,11 @@ dlBtn.onclick = () => {
   
   offscreen.toBlob(blob => {
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
+    a.href = url;
     a.download = `${city.toLowerCase().replace(/\s+/g, '-')}-${size.label}-${size.orient}.png`;
     a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     status('Downloaded!');
   }, 'image/png');
 };
@@ -1887,6 +1984,16 @@ dlSvgBtn.onclick = () => {
 zoomIn.onclick = () => { zoom = Math.min(zoom * 1.2, 5); zoomLevel.textContent = Math.round(zoom * 100) + '%'; render(canvas, themeEl.value, true); };
 zoomOut.onclick = () => { zoom = Math.max(zoom / 1.2, 0.5); zoomLevel.textContent = Math.round(zoom * 100) + '%'; render(canvas, themeEl.value, true); };
 zoomReset.onclick = () => { zoom = 1; panX = 0; panY = 0; zoomLevel.textContent = '100%'; render(canvas, themeEl.value, true); };
+
+let renderQueued = false;
+function scheduleRender() {
+  if (!data || renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => {
+    renderQueued = false;
+    if (data) render(canvas, themeEl.value, true);
+  });
+}
 
 let isPanning = false, lastX, lastY, snapTimeout;
 const SNAP_THRESHOLD = 15;
@@ -1917,43 +2024,89 @@ document.onmousemove = e => {
     }
   }
   
-  if (data) render(canvas, themeEl.value, true);
+  scheduleRender();
 };
 document.onmouseup = () => { isPanning = false; canvas.style.cursor = 'grab'; };
-canvas.onwheel = e => { e.preventDefault(); const d = e.deltaY > 0 ? 0.9 : 1.1; zoom = Math.min(Math.max(zoom * d, 0.5), 5); zoomLevel.textContent = Math.round(zoom * 100) + '%'; if (data) render(canvas, themeEl.value, true); };
+canvas.onwheel = e => { e.preventDefault(); const d = e.deltaY > 0 ? 0.9 : 1.1; zoom = Math.min(Math.max(zoom * d, 0.5), 5); zoomLevel.textContent = Math.round(zoom * 100) + '%'; scheduleRender(); };
 
 // === COMPARE MODAL ===
+let lastFocusedEl = null;
+function getFocusable(el) {
+  return Array.from(el.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+    .filter(node => !node.disabled && node.getClientRects().length > 0);
+}
+
+function trapFocus(modalEl, e) {
+  if (e.key !== 'Tab') return;
+  const focusable = getFocusable(modalEl);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+function openModal(modalEl) {
+  lastFocusedEl = document.activeElement;
+  modalEl.classList.add('open');
+  modalEl.setAttribute('aria-hidden', 'false');
+  const focusable = getFocusable(modalEl);
+  if (focusable.length) focusable[0].focus();
+  if (!modalEl._focusTrap) modalEl._focusTrap = e => trapFocus(modalEl, e);
+  modalEl.addEventListener('keydown', modalEl._focusTrap);
+}
+
+function closeModal(modalEl) {
+  modalEl.classList.remove('open');
+  modalEl.setAttribute('aria-hidden', 'true');
+  if (modalEl._focusTrap) modalEl.removeEventListener('keydown', modalEl._focusTrap);
+  if (lastFocusedEl && typeof lastFocusedEl.focus === 'function') lastFocusedEl.focus();
+}
+
 compareBtn.onclick = () => {
   if (!data) return;
-  modal.classList.add('open');
+  openModal(modal);
   themeGrid.innerHTML = '';
   
   Object.entries(THEMES).forEach(([key, theme]) => {
     const card = document.createElement('div');
     card.className = 'theme-card';
     const cvs = document.createElement('canvas');
-    render(cvs, key, true, 0.2);
+    render(cvs, key, true, 0.2, null, { ignorePanZoom: true });
     card.appendChild(cvs);
     const info = document.createElement('div');
     info.className = 'theme-card-info';
     info.innerHTML = `<span class="theme-card-name">${theme.name}</span><button class="btn btn-primary" style="padding:6px 12px; font-size:10px;">Select</button>`;
-    info.querySelector('button').onclick = () => { themeEl.value = key; render(canvas, key, true); modal.classList.remove('open'); };
+    info.querySelector('button').onclick = () => { themeEl.value = key; render(canvas, key, true); closeModal(modal); };
     card.appendChild(info);
     themeGrid.appendChild(card);
   });
 };
-modalClose.onclick = () => modal.classList.remove('open');
+modalClose.onclick = () => closeModal(modal);
 
 // === BATCH MODAL ===
-batchBtn.onclick = () => batchModal.classList.add('open');
-batchClose.onclick = () => batchModal.classList.remove('open');
+batchBtn.onclick = () => openModal(batchModal);
+batchClose.onclick = () => closeModal(batchModal);
+
+function appendBatchLog(text, color) {
+  const line = document.createElement('div');
+  line.textContent = text;
+  if (color) line.style.color = color;
+  batchLog.appendChild(line);
+}
 
 batchStart.onclick = async () => {
   const lines = batchInput.value.split('\n').map(l => l.trim()).filter(l => l && l.includes(','));
   if (!lines.length) { batchStatus.textContent = 'No valid cities'; return; }
   
+  abortActiveRequests();
   batchStart.disabled = true;
-  batchLog.innerHTML = '';
+  batchLog.textContent = '';
   batchProgress.classList.add('active');
   const results = [];
   
@@ -1964,8 +2117,7 @@ batchStart.onclick = async () => {
     
     try {
       // Geocode
-      const geoRes = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(cityName + ', ' + countryName)}&limit=1`);
-      const geoData = await geoRes.json();
+      const geoData = await fetchJsonWithRetry(`https://photon.komoot.io/api/?q=${encodeURIComponent(cityName + ', ' + countryName)}&limit=1`, { method: 'GET' }, 2, PHOTON_TIMEOUT_MS);
       if (!geoData.features?.length) throw new Error('City not found');
       
       const feature = geoData.features[0];
@@ -1976,8 +2128,11 @@ batchStart.onclick = async () => {
       let areaId = null;
       if (osmType === 'R' && osmId) areaId = 3600000000 + osmId;
       
-      const result = await fetchData(areaId, lat, lon, 10000, null);
-      const bounds = calcBounds(result.streets, result.water);
+      const batchRadius = 10000;
+      const result = await fetchData(areaId, lat, lon, batchRadius, null);
+      let bounds = calcBounds(result.streets, result.water);
+      if (!bounds) bounds = fallbackBounds(lat, lon, batchRadius);
+      bounds = normalizeBounds(bounds);
       
       const tempData = { streets: result.streets, water: result.water, bounds, lat, lon, city: cityName, country: countryName };
       const oldData = data;
@@ -1992,11 +2147,11 @@ batchStart.onclick = async () => {
       
       const blob = await new Promise(r => offscreen.toBlob(r, 'image/png'));
       results.push({ name: `${cityName.toLowerCase().replace(/\s+/g, '-')}.png`, blob });
-      batchLog.innerHTML += `<div style="color:#4a9eff;">✓ ${cityName}</div>`;
+      appendBatchLog(`✓ ${cityName}`, '#4a9eff');
       
       data = oldData;
     } catch (e) {
-      batchLog.innerHTML += `<div style="color:#e55;">✗ ${cityName}: ${e.message}</div>`;
+      appendBatchLog(`✗ ${cityName}: ${e.message}`, '#e55');
     }
     
     if (i < lines.length - 1) await new Promise(r => setTimeout(r, 2000));
@@ -2010,9 +2165,11 @@ batchStart.onclick = async () => {
     results.forEach(r => zip.file(r.name, r.blob));
     const content = await zip.generateAsync({ type: 'blob' });
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(content);
+    const url = URL.createObjectURL(content);
+    a.href = url;
     a.download = 'map-posters.zip';
     a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   
   batchStatus.textContent = `Done! ${results.length}/${lines.length} generated`;
@@ -2021,7 +2178,11 @@ batchStart.onclick = async () => {
 };
 
 // === KEYBOARD ===
-document.onkeydown = e => { if (e.key === 'Escape') { modal.classList.remove('open'); batchModal.classList.remove('open'); } };
+document.onkeydown = e => {
+  if (e.key !== 'Escape') return;
+  if (modal.classList.contains('open')) closeModal(modal);
+  if (batchModal.classList.contains('open')) closeModal(batchModal);
+};
 
 // === OPTION CHANGES ===
 document.querySelectorAll('[name="size"], [name="orient"]').forEach(el => { el.onchange = () => { if (data) render(canvas, themeEl.value, true); }; });
