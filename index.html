@@ -1319,6 +1319,8 @@ const GEOCODE_CACHE = new Map();
 let previewLayer = null;
 let previewLayerKey = '';
 let dataVersion = 0;
+let previewProjCache = null;
+let previewProjKey = '';
 
 const $ = id => document.getElementById(id);
 
@@ -1740,6 +1742,8 @@ function getDisplayNames() {
 function invalidatePreviewLayer() {
   previewLayer = null;
   previewLayerKey = '';
+  previewProjCache = null;
+  previewProjKey = '';
 }
 
 function computeLayout(size, scale) {
@@ -1802,6 +1806,53 @@ function drawGeometry(ctx, geom, proj, minDistSq, step = 1) {
   }
 }
 
+function buildProjectedGeometry(layout, step, minDistSq) {
+  const proj = layout.proj;
+  const build = (geom) => {
+    if (!geom || geom.length < 2) return [];
+    const points = [];
+    let lastX = null;
+    let lastY = null;
+    const lastIndex = geom.length - 1;
+    for (let i = 0; i < geom.length; i += step) {
+      const p = geom[i];
+      const [x, y] = proj(p.lat, p.lon);
+      if (lastX === null) {
+        points.push(x, y);
+        lastX = x; lastY = y;
+        continue;
+      }
+      const dx = x - lastX;
+      const dy = y - lastY;
+      const isLast = i >= lastIndex;
+      if (!isLast && minDistSq > 0 && (dx * dx + dy * dy) < minDistSq) continue;
+      points.push(x, y);
+      lastX = x; lastY = y;
+    }
+    if (step > 1) {
+      const p = geom[lastIndex];
+      const [x, y] = proj(p.lat, p.lon);
+      const dx = x - lastX;
+      const dy = y - lastY;
+      if ((dx * dx + dy * dy) >= minDistSq) points.push(x, y);
+    }
+    return points;
+  };
+  
+  const roads = {};
+  const groups = data.groups || buildRoadGroups(data.streets.elements || []);
+  Object.entries(groups).forEach(([k, arr]) => {
+    roads[k] = arr.map(r => build(r.geometry));
+  });
+  
+  const waters = (data.water?.elements || []).map(el => ({
+    closed: el.geometry && el.geometry.length > 1 && el.geometry[0].lat === el.geometry[el.geometry.length - 1].lat && el.geometry[0].lon === el.geometry[el.geometry.length - 1].lon,
+    points: build(el.geometry)
+  }));
+  
+  return { roads, waters };
+}
+
 function drawWater(ctx, layout, theme, scale, roadWeight, minDistSq, step) {
   const { proj } = layout;
   ctx.fillStyle = theme.water;
@@ -1827,6 +1878,34 @@ function drawRoadGroup(ctx, layout, theme, scale, roadWeight, roads, colorIdx, m
   ctx.stroke();
 }
 
+function drawProjectedWater(ctx, theme, scale, roadWeight, waters) {
+  ctx.fillStyle = theme.water;
+  ctx.strokeStyle = theme.water;
+  ctx.lineWidth = 1.5 * scale * roadWeight;
+  waters.forEach(w => {
+    if (!w.points || w.points.length < 4) return;
+    ctx.beginPath();
+    ctx.moveTo(w.points[0], w.points[1]);
+    for (let i = 2; i < w.points.length; i += 2) ctx.lineTo(w.points[i], w.points[i + 1]);
+    w.closed ? ctx.fill() : ctx.stroke();
+  });
+}
+
+function drawProjectedRoadGroup(ctx, theme, scale, roadWeight, colorIdx, roads) {
+  if (!roads.length) return;
+  ctx.strokeStyle = theme.roads[colorIdx];
+  ctx.lineWidth = BASE_WIDTHS[colorIdx] * scale * roadWeight * (scale < 1 ? 1.3 : 1);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  roads.forEach(points => {
+    if (!points || points.length < 4) return;
+    ctx.moveTo(points[0], points[1]);
+    for (let i = 2; i < points.length; i += 2) ctx.lineTo(points[i], points[i + 1]);
+  });
+  ctx.stroke();
+}
+
 function buildRoadGroups(elements) {
   const groups = { motorway: [], primary: [], secondary: [], tertiary: [], residential: [] };
   (elements || []).forEach(el => {
@@ -1847,8 +1926,28 @@ function drawMapLayer(ctx, layout, theme, scale, roadWeight) {
   const fastPreview = scale < 1 && totalFeatures > PREVIEW_FAST_THRESHOLD;
   const skipWater = fastPreview;
   const step = fastPreview ? 2 : 1;
+  const useProjCache = scale < 1;
   
   // Water
+  if (useProjCache) {
+    const projKey = `${dataVersion}|${layout.w}x${layout.h}|${step}|${minDistSq.toFixed(4)}`;
+    if (!previewProjCache || previewProjKey !== projKey) {
+      previewProjCache = buildProjectedGeometry(layout, step, minDistSq);
+      previewProjKey = projKey;
+    }
+    
+    if (!skipWater && waterEl.checked && previewProjCache.waters?.length) {
+      drawProjectedWater(ctx, theme, scale, roadWeight, previewProjCache.waters);
+    }
+    
+    const order = fastPreview ? ['tertiary', 'secondary', 'primary', 'motorway'] : ['residential', 'tertiary', 'secondary', 'primary', 'motorway'];
+    order.forEach((grp, i) => {
+      const roads = previewProjCache.roads?.[grp] || [];
+      drawProjectedRoadGroup(ctx, theme, scale, roadWeight, 4 - i, roads);
+    });
+    return;
+  }
+  
   if (!skipWater && waterEl.checked && data.water?.elements) {
     drawWater(ctx, layout, theme, scale, roadWeight, minDistSq, step);
   }
@@ -1942,8 +2041,10 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
       previewLayer.height = h;
       const pctx = previewLayer.getContext('2d');
       pctx.clearRect(0, 0, w, h);
-    const totalFeatures = data.totalFeatures ?? ((data.streets.elements || []).length + (data.water?.elements || []).length);
-    const fastPreview = scale < 1 && totalFeatures > PREVIEW_FAST_THRESHOLD;
+      previewProjCache = null;
+      previewProjKey = '';
+      const totalFeatures = data.totalFeatures ?? ((data.streets.elements || []).length + (data.water?.elements || []).length);
+      const fastPreview = scale < 1 && totalFeatures > PREVIEW_FAST_THRESHOLD;
       if (fastPreview) {
         status(`Large city detected (${totalFeatures.toLocaleString()} features). Using fast preview.`, false, true);
       }
