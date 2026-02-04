@@ -1314,6 +1314,9 @@ let activeControllers = new Set();
 const STREET_CACHE = new Map();
 const WATER_CACHE = new Map();
 const GEOCODE_CACHE = new Map();
+let previewLayer = null;
+let previewLayerKey = '';
+let dataVersion = 0;
 
 const $ = id => document.getElementById(id);
 
@@ -1515,7 +1518,7 @@ uiClassic.onclick = () => { document.body.dataset.ui = 'classic'; uiClassic.clas
 uiDark.onclick = () => { document.body.dataset.ui = 'dark'; uiDark.classList.add('active'); uiClassic.classList.remove('active'); localStorage.setItem('ui', 'dark'); };
 if (localStorage.getItem('ui') === 'classic') uiClassic.click();
 
-themeEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
+themeEl.onchange = () => { invalidatePreviewLayer(); if (data) render(canvas, themeEl.value, true); };
 
 // === UTILITIES ===
 function status(msg, err, loading) {
@@ -1732,31 +1735,14 @@ function getDisplayNames() {
   return { city, country };
 }
 
-// === RENDER ===
-function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) {
-  const size = sizeOverride || getSize();
+function invalidatePreviewLayer() {
+  previewLayer = null;
+  previewLayerKey = '';
+}
+
+function computeLayout(size, scale) {
   const { w: fullW, h: fullH, orient } = size;
-  const theme = THEMES[themeKey];
-  const scale = scaleOverride || (isPreview ? 0.35 : 1);
-  const roadWeight = parseFloat(roadWeightEl?.value || 1);
-  const font = fontStyleEl?.value || 'system-ui, sans-serif';
-  const showCoords = showCoordsEl?.checked !== false;
-  const { city, country } = getDisplayNames();
-  const ignorePanZoom = options?.ignorePanZoom === true;
-  
   const w = Math.round(fullW * scale), h = Math.round(fullH * scale);
-  cvs.width = w; cvs.height = h;
-  const ctx = cvs.getContext('2d');
-  
-  if (isPreview && !ignorePanZoom && (zoom !== 1 || panX !== 0 || panY !== 0)) {
-    ctx.translate(w/2 + panX, h/2 + panY);
-    ctx.scale(zoom, zoom);
-    ctx.translate(-w/2, -h/2);
-  }
-  
-  ctx.fillStyle = theme.bg;
-  ctx.fillRect(-w, -h, w*3, h*3);
-  
   const margin = Math.min(w, h) * 0.05;
   const isLandscape = orient === 'landscape';
   const mapW = w - margin * 2;
@@ -1780,6 +1766,12 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
     margin + ((lon - adj.minLon) / (adj.maxLon - adj.minLon)) * mapW,
     mapTop + ((adj.maxLat - lat) / (adj.maxLat - adj.minLat)) * mapH
   ];
+  
+  return { w, h, margin, mapW, mapH, mapTop, isLandscape, proj };
+}
+
+function drawMapLayer(ctx, layout, theme, scale, roadWeight) {
+  const { proj } = layout;
   
   // Water
   if (waterEl.checked && data.water?.elements) {
@@ -1812,7 +1804,7 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
     const roads = groups[grp];
     if (!roads.length) return;
     ctx.strokeStyle = theme.roads[4 - i];
-    ctx.lineWidth = BASE_WIDTHS[4 - i] * scale * roadWeight * (isPreview ? 1.3 : 1);
+    ctx.lineWidth = BASE_WIDTHS[4 - i] * scale * roadWeight * (scale < 1 ? 1.3 : 1);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     roads.forEach(r => {
@@ -1821,8 +1813,52 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
       ctx.stroke();
     });
   });
+}
+
+// === RENDER ===
+function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) {
+  if (!data) return;
+  const size = sizeOverride || getSize();
+  const theme = THEMES[themeKey];
+  const scale = scaleOverride || (isPreview ? 0.35 : 1);
+  const roadWeight = parseFloat(roadWeightEl?.value || 1);
+  const font = fontStyleEl?.value || 'system-ui, sans-serif';
+  const showCoords = showCoordsEl?.checked !== false;
+  const { city, country } = getDisplayNames();
+  const ignorePanZoom = options?.ignorePanZoom === true;
   
-  if (isPreview && !ignorePanZoom && (zoom !== 1 || panX !== 0 || panY !== 0)) ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const layout = computeLayout(size, scale);
+  const { w, h, margin, mapW, mapH, mapTop, isLandscape } = layout;
+  cvs.width = w; cvs.height = h;
+  const ctx = cvs.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  
+  ctx.fillStyle = theme.bg;
+  ctx.fillRect(0, 0, w, h);
+  
+  if (isPreview) {
+    const key = `${dataVersion}|${themeKey}|${size.label}|${size.orient}|${w}x${h}|${roadWeight}|${waterEl.checked ? 1 : 0}|${scale}`;
+    if (!previewLayer || previewLayerKey !== key) {
+      previewLayer = document.createElement('canvas');
+      previewLayer.width = w;
+      previewLayer.height = h;
+      const pctx = previewLayer.getContext('2d');
+      pctx.clearRect(0, 0, w, h);
+      drawMapLayer(pctx, layout, theme, scale, roadWeight);
+      previewLayerKey = key;
+    }
+    
+    ctx.save();
+    if (!ignorePanZoom && (zoom !== 1 || panX !== 0 || panY !== 0)) {
+      ctx.translate(w/2 + panX, h/2 + panY);
+      ctx.scale(zoom, zoom);
+      ctx.translate(-w/2, -h/2);
+    }
+    ctx.drawImage(previewLayer, 0, 0);
+    ctx.restore();
+  } else {
+    drawMapLayer(ctx, layout, theme, scale, roadWeight);
+  }
   
   const bgColor = expandHex(theme.bg);
   
@@ -2137,6 +2173,8 @@ genBtn.onclick = async () => {
       city: selectedEl.dataset.city || place.name || '',
       country: selectedEl.dataset.country || place.address?.country || ''
     };
+    dataVersion += 1;
+    invalidatePreviewLayer();
     
     render(canvas, themeEl.value, true);
     setStep(4, 'complete', 'Preview ready');
@@ -2413,7 +2451,7 @@ document.onkeydown = e => {
 
 // === OPTION CHANGES ===
 document.querySelectorAll('[name="size"], [name="orient"]').forEach(el => { el.onchange = () => { if (data) render(canvas, themeEl.value, true); }; });
-waterEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
+waterEl.onchange = () => { invalidatePreviewLayer(); if (data) render(canvas, themeEl.value, true); };
 showCoordsEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
 fontStyleEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
 customCityEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
