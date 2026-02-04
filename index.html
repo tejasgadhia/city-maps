@@ -1818,12 +1818,24 @@ function drawRoadGroup(ctx, layout, theme, scale, roadWeight, roads, colorIdx, m
   ctx.stroke();
 }
 
+function buildRoadGroups(elements) {
+  const groups = { motorway: [], primary: [], secondary: [], tertiary: [], residential: [] };
+  (elements || []).forEach(el => {
+    if (el.type !== 'way' || !el.geometry) return;
+    const hw = el.tags?.highway?.replace('_link', '') || '';
+    if (hw === 'motorway' || hw === 'trunk') groups.motorway.push(el);
+    else if (hw === 'primary') groups.primary.push(el);
+    else if (hw === 'secondary') groups.secondary.push(el);
+    else if (hw === 'tertiary') groups.tertiary.push(el);
+    else groups.residential.push(el);
+  });
+  return groups;
+}
+
 function drawMapLayer(ctx, layout, theme, scale, roadWeight) {
-  const { proj } = layout;
   const minDistSq = scale < 1 ? PREVIEW_SIMPLIFY_PX * PREVIEW_SIMPLIFY_PX : 0;
-  const totalRoads = (data.streets.elements || []).length;
-  const totalWater = (data.water?.elements || []).length;
-  const fastPreview = scale < 1 && (totalRoads + totalWater) > PREVIEW_FAST_THRESHOLD;
+  const totalFeatures = (data.totalFeatures ?? ((data.streets.elements || []).length + (data.water?.elements || []).length));
+  const fastPreview = scale < 1 && totalFeatures > PREVIEW_FAST_THRESHOLD;
   const skipWater = fastPreview;
   
   // Water
@@ -1832,18 +1844,9 @@ function drawMapLayer(ctx, layout, theme, scale, roadWeight) {
   }
   
   // Roads
-  const groups = { motorway: [], primary: [], secondary: [], tertiary: [], residential: [] };
-  (data.streets.elements || []).forEach(el => {
-    if (el.type !== 'way' || !el.geometry) return;
-    const hw = el.tags?.highway?.replace('_link', '') || '';
-    if (hw === 'motorway' || hw === 'trunk') groups.motorway.push(el);
-    else if (hw === 'primary') groups.primary.push(el);
-    else if (hw === 'secondary') groups.secondary.push(el);
-    else if (hw === 'tertiary') groups.tertiary.push(el);
-    else if (!fastPreview) groups.residential.push(el);
-  });
+  const groups = data.groups || buildRoadGroups(data.streets.elements || []);
   
-  const order = ['residential', 'tertiary', 'secondary', 'primary', 'motorway'];
+  const order = fastPreview ? ['tertiary', 'secondary', 'primary', 'motorway'] : ['residential', 'tertiary', 'secondary', 'primary', 'motorway'];
   order.forEach((grp, i) => {
     const roads = groups[grp];
     drawRoadGroup(ctx, layout, theme, scale, roadWeight, roads, 4 - i, minDistSq);
@@ -1852,29 +1855,19 @@ function drawMapLayer(ctx, layout, theme, scale, roadWeight) {
 
 async function drawMapLayerProgressive(ctx, layout, theme, scale, roadWeight, onProgress) {
   const minDistSq = scale < 1 ? PREVIEW_SIMPLIFY_PX * PREVIEW_SIMPLIFY_PX : 0;
-  const totalRoads = (data.streets.elements || []).length;
-  const totalWater = (data.water?.elements || []).length;
-  const fastPreview = scale < 1 && (totalRoads + totalWater) > PREVIEW_FAST_THRESHOLD;
+  const totalFeatures = (data.totalFeatures ?? ((data.streets.elements || []).length + (data.water?.elements || []).length));
+  const fastPreview = scale < 1 && totalFeatures > PREVIEW_FAST_THRESHOLD;
   const skipWater = fastPreview;
   
   if (!skipWater && waterEl.checked && data.water?.elements) {
     drawWater(ctx, layout, theme, scale, roadWeight, minDistSq);
   }
   
-  const groups = { motorway: [], primary: [], secondary: [], tertiary: [], residential: [] };
-  (data.streets.elements || []).forEach(el => {
-    if (el.type !== 'way' || !el.geometry) return;
-    const hw = el.tags?.highway?.replace('_link', '') || '';
-    if (hw === 'motorway' || hw === 'trunk') groups.motorway.push(el);
-    else if (hw === 'primary') groups.primary.push(el);
-    else if (hw === 'secondary') groups.secondary.push(el);
-    else if (hw === 'tertiary') groups.tertiary.push(el);
-    else if (!fastPreview) groups.residential.push(el);
-  });
+  const groups = data.groups || buildRoadGroups(data.streets.elements || []);
   
-  const order = ['residential', 'tertiary', 'secondary', 'primary', 'motorway'];
+  const order = fastPreview ? ['tertiary', 'secondary', 'primary', 'motorway'] : ['residential', 'tertiary', 'secondary', 'primary', 'motorway'];
   let drawn = 0;
-  const total = order.reduce((sum, grp) => sum + groups[grp].length, 0);
+  const total = order.reduce((sum, grp) => sum + (groups[grp]?.length || 0), 0);
   
   for (const grp of order) {
     const roads = groups[grp];
@@ -1936,8 +1929,8 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
       previewLayer.height = h;
       const pctx = previewLayer.getContext('2d');
       pctx.clearRect(0, 0, w, h);
-      const totalFeatures = (data.streets.elements || []).length + (data.water?.elements || []).length;
-      const fastPreview = scale < 1 && totalFeatures > PREVIEW_FAST_THRESHOLD;
+    const totalFeatures = data.totalFeatures ?? ((data.streets.elements || []).length + (data.water?.elements || []).length);
+    const fastPreview = scale < 1 && totalFeatures > PREVIEW_FAST_THRESHOLD;
       if (fastPreview) {
         status(`Large city detected (${totalFeatures.toLocaleString()} features). Using fast preview.`, false, true);
       }
@@ -2281,6 +2274,10 @@ genBtn.onclick = async () => {
       city: selectedEl.dataset.city || place.name || '',
       country: selectedEl.dataset.country || place.address?.country || ''
     };
+    data.groups = buildRoadGroups(data.streets.elements);
+    data.totalRoads = data.streets.elements?.length || 0;
+    data.totalWater = data.water.elements?.length || 0;
+    data.totalFeatures = data.totalRoads + data.totalWater;
     dataVersion += 1;
     invalidatePreviewLayer();
     
@@ -2509,6 +2506,10 @@ batchStart.onclick = async () => {
       bounds = normalizeBounds(bounds);
       
       const tempData = { streets: result.streets, water: result.water, bounds, lat, lon, city: cityName, country: countryName };
+      tempData.groups = buildRoadGroups(tempData.streets.elements);
+      tempData.totalRoads = tempData.streets.elements?.length || 0;
+      tempData.totalWater = tempData.water.elements?.length || 0;
+      tempData.totalFeatures = tempData.totalRoads + tempData.totalWater;
       const oldData = data;
       data = tempData;
       
