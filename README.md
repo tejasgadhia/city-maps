@@ -105,31 +105,7 @@ No build step required.
 
 ## Changelog
 
-### v0.6.0 (Current)
-- SVG export added
-- Added 11×14" and 16×20" sizes
-- Faster previews (caching + progressive rendering)
-- Improved boundary detection and water coverage
-
-### v0.5.0
-- Step-based loading UI with progress indicators
-- Grid overlay and snap-to-center controls
-- Text size customization (city & subtitle)
-- Collapsible region groups in city list
-- New favicon and tagline
-- Code optimization and cleanup
-
-### v0.4.0
-- Three-column layout redesign
-- 200+ prepopulated cities
-- 12 unique map themes
-- Batch processing mode
-- Theme comparison modal
-
-### v0.3.0
-- Interactive pan/zoom controls
-- Portrait/landscape orientation
-- Water body rendering
+See `CHANGELOG.md` for full release notes. Releases are tagged as `vX.Y.Z`.
 
 ## Credits
 
