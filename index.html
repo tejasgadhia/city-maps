@@ -1308,6 +1308,7 @@ const PREVIEW_SIMPLIFY_PX = 0.8;
 const PREVIEW_MAX_W = 1200;
 const PREVIEW_MAX_H = 1200;
 const SVG_PRECISION = 1;
+const PREVIEW_FAST_THRESHOLD = 25000;
 
 let place = null, data = null, zoom = 1, panX = 0, panY = 0, currentCity = null;
 let activeControllers = new Set();
@@ -1794,9 +1795,13 @@ function drawGeometry(ctx, geom, proj, minDistSq) {
 function drawMapLayer(ctx, layout, theme, scale, roadWeight) {
   const { proj } = layout;
   const minDistSq = scale < 1 ? PREVIEW_SIMPLIFY_PX * PREVIEW_SIMPLIFY_PX : 0;
+  const totalRoads = (data.streets.elements || []).length;
+  const totalWater = (data.water?.elements || []).length;
+  const fastPreview = scale < 1 && (totalRoads + totalWater) > PREVIEW_FAST_THRESHOLD;
+  const skipWater = fastPreview;
   
   // Water
-  if (waterEl.checked && data.water?.elements) {
+  if (!skipWater && waterEl.checked && data.water?.elements) {
     ctx.fillStyle = theme.water;
     ctx.strokeStyle = theme.water;
     ctx.lineWidth = 1.5 * scale * roadWeight;
@@ -1818,7 +1823,7 @@ function drawMapLayer(ctx, layout, theme, scale, roadWeight) {
     else if (hw === 'primary') groups.primary.push(el);
     else if (hw === 'secondary') groups.secondary.push(el);
     else if (hw === 'tertiary') groups.tertiary.push(el);
-    else groups.residential.push(el);
+    else if (!fastPreview) groups.residential.push(el);
   });
   
   const order = ['residential', 'tertiary', 'secondary', 'primary', 'motorway'];
@@ -1872,6 +1877,11 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
       previewLayer.height = h;
       const pctx = previewLayer.getContext('2d');
       pctx.clearRect(0, 0, w, h);
+      const totalFeatures = (data.streets.elements || []).length + (data.water?.elements || []).length;
+      const fastPreview = scale < 1 && totalFeatures > PREVIEW_FAST_THRESHOLD;
+      if (fastPreview) {
+        status(`Large city detected (${totalFeatures.toLocaleString()} features). Using fast preview.`, false, true);
+      }
       drawMapLayer(pctx, layout, theme, scale, roadWeight);
       previewLayerKey = key;
     }
