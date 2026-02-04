@@ -1306,9 +1306,14 @@ const BASE_WIDTHS = [2.5, 2, 1.5, 1, 0.5];
 const FETCH_TIMEOUT_MS = 30000;
 const OVERPASS_TIMEOUT_MS = 60000;
 const PHOTON_TIMEOUT_MS = 15000;
+const CACHE_TTL_MS = 10 * 60 * 1000;
+const CACHE_MAX_ENTRIES = 20;
 
 let place = null, data = null, zoom = 1, panX = 0, panY = 0, currentCity = null;
 let activeControllers = new Set();
+const STREET_CACHE = new Map();
+const WATER_CACHE = new Map();
+const GEOCODE_CACHE = new Map();
 
 const $ = id => document.getElementById(id);
 
@@ -1531,6 +1536,29 @@ function abortActiveRequests() {
   activeControllers.clear();
 }
 
+function cacheKey(areaId, lat, lon, radius) {
+  const id = areaId ? `a${areaId}` : `r${lat.toFixed(4)}:${lon.toFixed(4)}:${radius}`;
+  return id;
+}
+
+function cacheGet(map, key) {
+  const entry = map.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL_MS) { map.delete(key); return null; }
+  return entry.value;
+}
+
+function cacheSet(map, key, value) {
+  map.set(key, { value, ts: Date.now() });
+  if (map.size <= CACHE_MAX_ENTRIES) return;
+  let oldestKey = null;
+  let oldestTs = Infinity;
+  for (const [k, v] of map.entries()) {
+    if (v.ts < oldestTs) { oldestTs = v.ts; oldestKey = k; }
+  }
+  if (oldestKey) map.delete(oldestKey);
+}
+
 function getSize() {
   const sizeVal = document.querySelector('input[name="size"]:checked').value;
   const orientVal = document.querySelector('input[name="orient"]:checked').value;
@@ -1608,6 +1636,34 @@ async function fetchWater(areaId, lat, lon, radius) {
     console.warn('Water fetch failed', e);
     return { elements: [] };
   }
+}
+
+async function fetchStreetsCached(areaId, lat, lon, radius) {
+  const key = cacheKey(areaId, lat, lon, radius);
+  const cached = cacheGet(STREET_CACHE, key);
+  if (cached) return { result: cached, fromCache: true };
+  const result = await fetchStreets(areaId, lat, lon, radius);
+  cacheSet(STREET_CACHE, key, result);
+  return { result, fromCache: false };
+}
+
+async function fetchWaterCached(areaId, lat, lon, radius) {
+  if (!waterEl.checked) return { result: { elements: [] }, fromCache: false };
+  const key = cacheKey(areaId, lat, lon, radius);
+  const cached = cacheGet(WATER_CACHE, key);
+  if (cached) return { result: cached, fromCache: true };
+  const result = await fetchWater(areaId, lat, lon, radius);
+  cacheSet(WATER_CACHE, key, result);
+  return { result, fromCache: false };
+}
+
+async function fetchGeocodeCached(cityName, countryName) {
+  const key = `${cityName.toLowerCase()}|${countryName.toLowerCase()}`;
+  const cached = cacheGet(GEOCODE_CACHE, key);
+  if (cached) return cached;
+  const data = await fetchJsonWithRetry(`https://photon.komoot.io/api/?q=${encodeURIComponent(cityName + ', ' + countryName)}&limit=1`, { method: 'GET' }, 2, PHOTON_TIMEOUT_MS);
+  cacheSet(GEOCODE_CACHE, key, data);
+  return data;
 }
 
 // Batch processing helper - uses fetchStreets/fetchWater with progress callbacks
@@ -2042,9 +2098,10 @@ genBtn.onclick = async () => {
     setStep(2, 'active', 'Connecting to Overpass API...');
     updateLoadingProgress(15);
     
-    const streetResult = await fetchStreets(areaId, place.lat, place.lon, radius);
+    const streetFetch = await fetchStreetsCached(areaId, place.lat, place.lon, radius);
+    const streetResult = streetFetch.result;
     const streetCount = streetResult.elements?.length || 0;
-    setStep(2, 'complete', `${streetCount.toLocaleString()} roads loaded`);
+    setStep(2, 'complete', `${streetCount.toLocaleString()} roads loaded${streetFetch.fromCache ? ' (cached)' : ''}`);
     updateLoadingProgress(55, `${streetCount.toLocaleString()} roads`);
     setProgress(55);
     
@@ -2052,9 +2109,10 @@ genBtn.onclick = async () => {
     setStep(3, 'active', 'Fetching rivers, lakes...');
     updateLoadingProgress(60);
     
-    const waterResult = await fetchWater(areaId, place.lat, place.lon, radius);
+    const waterFetch = await fetchWaterCached(areaId, place.lat, place.lon, radius);
+    const waterResult = waterFetch.result;
     const waterCount = waterResult.elements?.length || 0;
-    setStep(3, 'complete', `${waterCount.toLocaleString()} water features`);
+    setStep(3, 'complete', `${waterCount.toLocaleString()} water features${waterFetch.fromCache ? ' (cached)' : ''}`);
     updateLoadingProgress(85, `${streetCount.toLocaleString()} roads, ${waterCount.toLocaleString()} water`);
     setProgress(85);
     
@@ -2284,7 +2342,7 @@ batchStart.onclick = async () => {
     
     try {
       // Geocode
-      const geoData = await fetchJsonWithRetry(`https://photon.komoot.io/api/?q=${encodeURIComponent(cityName + ', ' + countryName)}&limit=1`, { method: 'GET' }, 2, PHOTON_TIMEOUT_MS);
+      const geoData = await fetchGeocodeCached(cityName, countryName);
       if (!geoData.features?.length) throw new Error('City not found');
       
       const feature = geoData.features[0];
@@ -2296,7 +2354,9 @@ batchStart.onclick = async () => {
       if (osmType === 'R' && osmId) areaId = 3600000000 + osmId;
       
       const batchRadius = 10000;
-      const result = await fetchData(areaId, lat, lon, batchRadius, null);
+      const streetFetch = await fetchStreetsCached(areaId, lat, lon, batchRadius);
+      const waterFetch = await fetchWaterCached(areaId, lat, lon, batchRadius);
+      const result = { streets: streetFetch.result, water: waterFetch.result };
       let bounds = calcBounds(result.streets, result.water);
       if (!bounds) bounds = fallbackBounds(lat, lon, batchRadius);
       bounds = normalizeBounds(bounds);
