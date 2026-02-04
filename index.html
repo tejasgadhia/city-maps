@@ -1316,6 +1316,7 @@ let activeControllers = new Set();
 const STREET_CACHE = new Map();
 const WATER_CACHE = new Map();
 const GEOCODE_CACHE = new Map();
+const BOUNDARY_CACHE = new Map();
 let previewLayer = null;
 let previewLayerKey = '';
 let dataVersion = 0;
@@ -1566,6 +1567,10 @@ function cacheSet(map, key, value) {
   if (oldestKey) map.delete(oldestKey);
 }
 
+function escapeOverpass(value) {
+  return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 function getSize() {
   const sizeVal = document.querySelector('input[name="size"]:checked').value;
   const orientVal = document.querySelector('input[name="orient"]:checked').value;
@@ -1625,7 +1630,13 @@ async function fetchStreets(areaId, lat, lon, radius) {
     : `[out:json][timeout:180];way["highway"~"^(${types})$"](around:${radius},${lat},${lon});out geom;`;
   
   const streetRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: streetQ }, 3, OVERPASS_TIMEOUT_MS);
-  return await streetRes.json();
+  const streetJson = await streetRes.json();
+  if (useArea && (!streetJson.elements || streetJson.elements.length === 0)) {
+    const fallbackQ = `[out:json][timeout:180];way["highway"~"^(${types})$"](around:${radius},${lat},${lon});out geom;`;
+    const fallbackRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: fallbackQ }, 2, OVERPASS_TIMEOUT_MS);
+    return await fallbackRes.json();
+  }
+  return streetJson;
 }
 
 async function fetchWater(areaId, lat, lon, radius) {
@@ -1633,12 +1644,18 @@ async function fetchWater(areaId, lat, lon, radius) {
   
   const useArea = !!areaId;
   const waterQ = useArea
-    ? `[out:json][timeout:90];area(${areaId})->.a;relation(area.a)["natural"="water"]->.rels;(way(area.a)["natural"="water"];way(area.a)["waterway"~"river|canal|stream"];way(r.rels););out geom;`
-    : `[out:json][timeout:90];relation(around:${radius},${lat},${lon})["natural"="water"]->.rels;(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream"](around:${radius},${lat},${lon});way(r.rels););out geom;`;
+    ? `[out:json][timeout:90];area(${areaId})->.a;relation(area.a)["natural"="water"]->.rels;(way(area.a)["natural"="water"];way(area.a)["waterway"~"river|canal|stream|riverbank"];way(r.rels););out geom;`
+    : `[out:json][timeout:90];relation(around:${radius},${lat},${lon})["natural"="water"]->.rels;(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream|riverbank"](around:${radius},${lat},${lon});way(r.rels););out geom;`;
   
   try {
     const waterRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: waterQ }, 3, OVERPASS_TIMEOUT_MS);
-    return await waterRes.json();
+    const waterJson = await waterRes.json();
+    if (useArea && (!waterJson.elements || waterJson.elements.length === 0)) {
+      const fallbackQ = `[out:json][timeout:90];(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream|riverbank"](around:${radius},${lat},${lon}););out geom;`;
+      const fallbackRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: fallbackQ }, 2, OVERPASS_TIMEOUT_MS);
+      return await fallbackRes.json();
+    }
+    return waterJson;
   } catch (e) {
     console.warn('Water fetch failed', e);
     return { elements: [] };
@@ -1671,6 +1688,43 @@ async function fetchGeocodeCached(cityName, countryName) {
   const data = await fetchJsonWithRetry(`https://photon.komoot.io/api/?q=${encodeURIComponent(cityName + ', ' + countryName)}&limit=1`, { method: 'GET' }, 2, PHOTON_TIMEOUT_MS);
   cacheSet(GEOCODE_CACHE, key, data);
   return data;
+}
+
+async function fetchBoundaryRelation(lat, lon, name, country) {
+  const key = `${name.toLowerCase()}|${(country || '').toLowerCase()}|${lat.toFixed(3)}|${lon.toFixed(3)}`;
+  const cached = cacheGet(BOUNDARY_CACHE, key);
+  if (cached !== null) return cached || null;
+  if (!name) { cacheSet(BOUNDARY_CACHE, key, 0); return null; }
+  
+  const safeName = escapeOverpass(name);
+  const radius = DEFAULT_RADIUS * 3;
+  const q = `[out:json][timeout:60];(` +
+    `relation["boundary"="administrative"]["admin_level"~"6|7|8|9"]["name"="${safeName}"](around:${radius},${lat},${lon});` +
+    `relation["boundary"="administrative"]["admin_level"~"6|7|8|9"]["name:en"="${safeName}"](around:${radius},${lat},${lon});` +
+    `);out tags;`;
+  
+  try {
+    const res = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: q }, 2, OVERPASS_TIMEOUT_MS);
+    const json = await res.json();
+    const rels = (json.elements || []).filter(e => e.type === 'relation');
+    if (!rels.length) { cacheSet(BOUNDARY_CACHE, key, 0); return null; }
+    
+    const score = (rel) => {
+      const lvl = parseInt(rel.tags?.admin_level || '99', 10);
+      const nameTag = rel.tags?.name || rel.tags?.['name:en'] || '';
+      const exact = nameTag.toLowerCase() === name.toLowerCase() ? 0 : 5;
+      const lvlScore = lvl === 8 ? 0 : lvl === 9 ? 1 : lvl === 7 ? 2 : lvl === 6 ? 3 : 4;
+      return exact * 10 + lvlScore;
+    };
+    rels.sort((a, b) => score(a) - score(b));
+    const best = rels[0];
+    cacheSet(BOUNDARY_CACHE, key, best.id);
+    return best.id;
+  } catch (e) {
+    console.warn('Boundary resolve failed', e);
+    cacheSet(BOUNDARY_CACHE, key, 0);
+    return null;
+  }
 }
 
 // Batch processing helper - uses fetchStreets/fetchWater with progress callbacks
@@ -2339,7 +2393,15 @@ genBtn.onclick = async () => {
       areaId = 3600000000 + place.osm_id;
       setStep(1, 'complete', `OSM relation ${place.osm_id}`);
     } else {
-      setStep(1, 'complete', 'Using radius-based area');
+      const nameHint = customCityEl.value.trim() || place.name || selectedEl.dataset.city || '';
+      const countryHint = customCountryEl.value.trim() || place.address?.country || selectedEl.dataset.country || '';
+      const boundaryRel = await fetchBoundaryRelation(place.lat, place.lon, nameHint, countryHint);
+      if (boundaryRel) {
+        areaId = 3600000000 + boundaryRel;
+        setStep(1, 'complete', `Boundary relation ${boundaryRel}`);
+      } else {
+        setStep(1, 'complete', 'Using radius-based area');
+      }
     }
     updateLoadingProgress(10);
     
@@ -2610,6 +2672,10 @@ batchStart.onclick = async () => {
       
       let areaId = null;
       if (osmType === 'R' && osmId) areaId = 3600000000 + osmId;
+      if (!areaId) {
+        const boundaryRel = await fetchBoundaryRelation(lat, lon, cityName, countryName);
+        if (boundaryRel) areaId = 3600000000 + boundaryRel;
+      }
       
       const batchRadius = DEFAULT_RADIUS;
       const streetFetch = await fetchStreetsCached(areaId, lat, lon, batchRadius);
