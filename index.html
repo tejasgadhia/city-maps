@@ -1535,8 +1535,8 @@ function renderCityList() {
           <div class="region-cities">
             ${regionCities.map(c => `
               <div class="city-item" data-key="${c.key}" role="button" tabindex="0">
-                <div class="name">${c.name}</div>
-                <div class="country">${c.country}</div>
+                <div class="name">${escapeHtml(c.name)}</div>
+                <div class="country">${escapeHtml(c.country)}</div>
               </div>
             `).join('')}
           </div>
@@ -1574,8 +1574,8 @@ function renderCityList() {
     cityCountEl.textContent = `${cities.length} cities`;
     cityListEl.innerHTML = cities.map(c => `
       <div class="city-item" data-key="${c.key}" role="button" tabindex="0">
-        <div class="name">${c.name}</div>
-        <div class="country">${c.country}</div>
+        <div class="name">${escapeHtml(c.name)}</div>
+        <div class="country">${escapeHtml(c.country)}</div>
       </div>
     `).join('');
   }
@@ -1715,7 +1715,13 @@ if (orientSelect) {
 
 // === UTILITIES ===
 function status(msg, err, loading) {
-  statusEl.innerHTML = (loading ? '<span class="spinner"></span>' : '') + msg;
+  statusEl.textContent = '';
+  if (loading) {
+    const spinner = document.createElement('span');
+    spinner.className = 'spinner';
+    statusEl.appendChild(spinner);
+  }
+  statusEl.appendChild(document.createTextNode(String(msg ?? '')));
   statusEl.className = 'status-bar' + (err ? ' error' : '') + (loading ? ' loading' : '');
 }
 
@@ -2145,6 +2151,15 @@ function radiusFromBounds(bounds) {
   const lonSpanM = (bounds.maxLon - bounds.minLon) * 111000 * Math.cos(((bounds.minLat + bounds.maxLat) / 2) * Math.PI / 180);
   const diag = Math.hypot(latSpanM, lonSpanM);
   return Math.min(MAX_RADIUS, Math.max(DEFAULT_RADIUS, Math.round(diag * 0.55)));
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function escapeXml(text) {
@@ -3296,19 +3311,20 @@ batchStart.onclick = async () => {
       tempData.totalFeatures = tempData.totalRoads + tempData.totalWater;
       const oldData = data;
       data = tempData;
-      
-      const [sizeVal, orientVal] = batchSize.value.split('-');
-      const size = { w: SIZES[sizeVal][orientVal][0], h: SIZES[sizeVal][orientVal][1], orient: orientVal, label: sizeVal };
-      
-      offscreen.width = size.w;
-      offscreen.height = size.h;
-      render(offscreen, batchTheme.value, false, 1, size);
-      
-      const blob = await new Promise(r => offscreen.toBlob(r, 'image/png'));
-      results.push({ name: `${cityName.toLowerCase().replace(/\s+/g, '-')}.png`, blob });
-      appendBatchLog(`✓ ${cityName}`, '#4a9eff');
-      
-      data = oldData;
+      try {
+        const [sizeVal, orientVal] = batchSize.value.split('-');
+        const size = { w: SIZES[sizeVal][orientVal][0], h: SIZES[sizeVal][orientVal][1], orient: orientVal, label: sizeVal };
+        
+        offscreen.width = size.w;
+        offscreen.height = size.h;
+        render(offscreen, batchTheme.value, false, 1, size);
+        
+        const blob = await new Promise(r => offscreen.toBlob(r, 'image/png'));
+        results.push({ name: `${cityName.toLowerCase().replace(/\s+/g, '-')}.png`, blob });
+        appendBatchLog(`✓ ${cityName}`, '#4a9eff');
+      } finally {
+        data = oldData;
+      }
     } catch (e) {
       appendBatchLog(`✗ ${cityName}: ${e.message}`, '#e55');
     }
