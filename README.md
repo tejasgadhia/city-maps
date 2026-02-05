@@ -35,6 +35,7 @@ Beautiful city map posters in seconds. A browser-based generator for print-ready
 - **Vector SVG** — Infinitely scalable, ideal for large prints or editing
 - **Four sizes** — 5×7", 8×10", 11×14", 16×20" (300 DPI)
 - **Portrait & landscape** — Choose orientation
+- **Bleed margins** — Optional 0.125" bleed for print trimming
 - **Batch mode** — Generate multiple cities, download as ZIP
 - **Theme compare** — Preview all 12 themes side-by-side
 
@@ -43,6 +44,7 @@ Beautiful city map posters in seconds. A browser-based generator for print-ready
 - **Step-based loading** — Clear progress with 4 numbered steps
 - **Real-time stats** — See road/water counts as they load
 - **Elapsed time** — Know how long generation takes
+- **Shareable links** — URL updates to reproduce settings
 
 ## Themes
 
@@ -94,6 +96,11 @@ open index.html
 ```
 
 No build step required.
+
+Validate city data:
+```bash
+node scripts/validate-cities.js
+```
 
 ## File Structure
 

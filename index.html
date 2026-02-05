@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MapToPoster — City Map Poster Generator</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%234a9eff'/><path d='M50 20c-11 0-20 9-20 20 0 15 20 35 20 35s20-20 20-35c0-11-9-20-20-20zm0 28a8 8 0 1 1 0-16 8 8 0 0 1 0 16z' fill='white'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
@@ -1066,6 +1069,44 @@
       margin-top: 12px;
       color: var(--text2);
     }
+
+    /* Mobile Blocker */
+    body.mobile-blocked { overflow: hidden; }
+    .mobile-blocker {
+      position: fixed;
+      inset: 0;
+      background: rgba(10,10,10,0.96);
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .mobile-blocker.active { display: flex; }
+    .mobile-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 520px;
+      text-align: left;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+    .mobile-card h2 {
+      font-size: 16px;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+    .mobile-card p {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.5;
+      margin-bottom: 10px;
+    }
+    .mobile-card .tip {
+      font-size: 12px;
+      color: var(--text3);
+    }
     
     /* Responsive */
     @media (max-width: 1000px) {
@@ -1083,6 +1124,14 @@
   </style>
 </head>
 <body data-ui="dark">
+<div class="mobile-blocker" id="mobileBlocker" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="mobile-card">
+    <h2>Desktop Required</h2>
+    <p>MapToPoster is built for desktop browsers where the canvas and export tools work reliably.</p>
+    <p>Please open this page on a laptop or desktop (Chrome, Firefox, or Safari).</p>
+    <p class="tip">If you're on a tablet, try switching to a desktop browser or enabling "Request Desktop Website."</p>
+  </div>
+</div>
 <div class="app">
   <!-- Header -->
   <header class="header">
@@ -1226,6 +1275,23 @@
       <div class="card-label">Map Theme</div>
       <select id="theme"></select>
     </div>
+
+    <div class="card">
+      <div class="card-label">Map Controls</div>
+      <div class="card-row">
+        <div class="field">
+          <div class="field-label">Density</div>
+          <select id="radiusPreset">
+            <option value="tight">Tight</option>
+            <option value="standard" selected>Standard</option>
+            <option value="wide">Wide</option>
+          </select>
+        </div>
+      </div>
+      <div class="info-text" style="margin-top:6px;">
+        Adjust how wide the map area is when boundaries are missing or too large.
+      </div>
+    </div>
     
     <div class="card">
       <div class="card-label">Text Options</div>
@@ -1254,9 +1320,47 @@
           <div class="field">
             <div class="field-label">Font</div>
             <select id="fontStyle">
-              <option value="system-ui, sans-serif">Clean Sans</option>
-              <option value="Georgia, serif">Classic Serif</option>
-              <option value="'Courier New', monospace">Typewriter</option>
+              <option value="'Sora', system-ui, sans-serif">Sora Sans</option>
+              <option value="'Cormorant Garamond', serif">Cormorant Serif</option>
+              <option value="'IBM Plex Mono', 'Courier New', monospace">Plex Mono</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-row">
+          <div class="field">
+            <div class="field-label">City Weight</div>
+            <select id="cityWeight">
+              <option value="300">Light</option>
+              <option value="400">Regular</option>
+              <option value="500">Medium</option>
+              <option value="600">Semibold</option>
+              <option value="700">Bold</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="field-label">Subtitle Weight</div>
+            <select id="subtitleWeight">
+              <option value="300">Light</option>
+              <option value="400" selected>Regular</option>
+              <option value="500">Medium</option>
+              <option value="600">Semibold</option>
+            </select>
+          </div>
+        </div>
+        <div class="slider-row">
+          <div class="slider-label">
+            <span>Letter Spacing</span>
+            <span id="citySpacingVal">10px</span>
+          </div>
+          <input type="range" id="citySpacing" min="2" max="24" step="1" value="10">
+        </div>
+        <div class="card-row">
+          <div class="field">
+            <div class="field-label">Separator</div>
+            <select id="separatorStyle">
+              <option value="line">Line</option>
+              <option value="dots">Dots</option>
+              <option value="none">None</option>
             </select>
           </div>
         </div>
@@ -1299,6 +1403,18 @@
               <option value="landscape">Landscape</option>
             </select>
           </div>
+        </div>
+      </div>
+      <div class="card-section">
+        <div class="toggle-row">
+          <span class="toggle-label">Include Bleed (0.125")</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="bleedToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="info-text" style="margin-top:6px;">
+          Adds extra margin for print trimming while keeping content safe.
         </div>
       </div>
       <div class="card-actions">
@@ -1408,6 +1524,10 @@ const SIZES = {
   '11x14': { portrait: [3300, 4200], landscape: [4200, 3300] },
   '16x20': { portrait: [4800, 6000], landscape: [6000, 4800] }
 };
+const RADIUS_PRESETS = { tight: 0.7, standard: 1, wide: 1.4 };
+const EXPORT_DPI = 300;
+const BLEED_IN = 0.125;
+const BLEED_PX = Math.round(EXPORT_DPI * BLEED_IN);
 const BASE_WIDTHS = [2.5, 2, 1.5, 1, 0.5];
 const FETCH_TIMEOUT_MS = 30000;
 const OVERPASS_TIMEOUT_MS = 60000;
@@ -1423,6 +1543,16 @@ const PREVIEW_MAX_H = 1200;
 const SVG_PRECISION = 1;
 const PREVIEW_FAST_THRESHOLD = 25000;
 const PREVIEW_CHUNK_SIZE = 400;
+const BATCH_MAX_PARALLEL = 2;
+const BATCH_MAX_RETRIES = 2;
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.nchc.org.tw/api/interpreter'
+];
+const STATE_VERSION = 1;
+const STATE_STORAGE_KEY = 'maptoposter_state_v1';
+const URL_STATE_PARAM = 's';
 
 let place = null, data = null, zoom = 1, panX = 0, panY = 0, currentCity = null;
 let previewRender = null;
@@ -1444,6 +1574,10 @@ let textMoveEnabled = false;
 let lastTextBounds = null;
 let isTextDragging = false;
 let fitQueued = false;
+let renderQueue = Promise.resolve();
+let applyingState = false;
+let pendingViewState = null;
+let stateSaveTimer = null;
 
 const $ = id => document.getElementById(id);
 
@@ -1475,6 +1609,204 @@ const cityQuickSearchEl = $('cityQuickSearch'), cityQuickBtn = $('cityQuickBtn')
 const searchModal = $('searchModal'), searchClose = $('searchClose');
 const cityListEl = $('cityList'), cityCountEl = $('cityCount');
 const sizeSelect = $('sizeSelect'), orientSelect = $('orientSelect');
+const radiusPreset = $('radiusPreset');
+const bleedToggle = $('bleedToggle');
+const cityWeightEl = $('cityWeight'), subtitleWeightEl = $('subtitleWeight');
+const citySpacingEl = $('citySpacing'), citySpacingVal = $('citySpacingVal');
+const separatorStyleEl = $('separatorStyle');
+
+function setUiTheme(mode, persist = true) {
+  document.body.dataset.ui = mode;
+  if (mode === 'classic') { uiClassic.classList.add('active'); uiDark.classList.remove('active'); }
+  else { uiDark.classList.add('active'); uiClassic.classList.remove('active'); }
+  if (persist) localStorage.setItem('ui', mode);
+}
+
+function toBase64(str) {
+  try {
+    return btoa(unescape(encodeURIComponent(str)));
+  } catch (e) {
+    return '';
+  }
+}
+
+function fromBase64(str) {
+  try {
+    return decodeURIComponent(escape(atob(str)));
+  } catch (e) {
+    return null;
+  }
+}
+
+function collectState() {
+  const customCity = customCityEl?.value?.trim() || '';
+  const customCountry = customCountryEl?.value?.trim() || '';
+  const isTemp = currentCity && String(currentCity).startsWith('temp-');
+  const tempCity = isTemp && CITIES?.[currentCity]
+    ? {
+        name: CITIES[currentCity].name,
+        country: CITIES[currentCity].country || '',
+        lat: CITIES[currentCity].lat,
+        lon: CITIES[currentCity].lon,
+        osm_id: CITIES[currentCity].osm_id || null
+      }
+    : null;
+  
+  return {
+    v: STATE_VERSION,
+    cityKey: currentCity || '',
+    tempCity,
+    theme: themeEl?.value || '',
+    size: sizeSelect?.value || '',
+    orient: orientSelect?.value || '',
+    font: fontStyleEl?.value || '',
+    cityFontSize: parseInt(cityFontSizeEl?.value || 48, 10),
+    subtitleFontSize: parseInt(subtitleFontSizeEl?.value || 18, 10),
+    cityWeight: parseInt(cityWeightEl?.value || 300, 10),
+    subtitleWeight: parseInt(subtitleWeightEl?.value || 400, 10),
+    citySpacing: parseInt(citySpacingEl?.value || 10, 10),
+    separator: separatorStyleEl?.value || 'line',
+    radiusPreset: radiusPreset?.value || 'standard',
+    showCoords: showCoordsEl?.checked ? 1 : 0,
+    water: waterEl?.checked ? 1 : 0,
+    bleed: bleedToggle?.checked ? 1 : 0,
+    ui: document.body.dataset.ui || 'dark',
+    customCity: customCity,
+    customCountry: customCountry,
+    zoom: Number.isFinite(zoom) ? Number(zoom.toFixed(3)) : 1,
+    panX: Number.isFinite(panX) ? Number(panX.toFixed(1)) : 0,
+    panY: Number.isFinite(panY) ? Number(panY.toFixed(1)) : 0,
+    textOffsetX: Number.isFinite(textOffsetX) ? Number(textOffsetX.toFixed(4)) : 0,
+    textOffsetY: Number.isFinite(textOffsetY) ? Number(textOffsetY.toFixed(4)) : 0
+  };
+}
+
+function persistState() {
+  if (applyingState) return;
+  const state = collectState();
+  try {
+    localStorage.setItem(STATE_STORAGE_KEY, JSON.stringify(state));
+  } catch (e) { /* ignore */ }
+  
+  const shouldShare = !!(state.cityKey || state.tempCity);
+  const url = new URL(window.location.href);
+  if (shouldShare) {
+    const encoded = toBase64(JSON.stringify(state));
+    if (encoded) url.searchParams.set(URL_STATE_PARAM, encoded);
+  } else {
+    url.searchParams.delete(URL_STATE_PARAM);
+  }
+  history.replaceState(null, '', url.toString());
+}
+
+function scheduleStateSave() {
+  if (applyingState) return;
+  clearTimeout(stateSaveTimer);
+  stateSaveTimer = setTimeout(persistState, 250);
+}
+
+function readStateFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const encoded = params.get(URL_STATE_PARAM);
+  if (!encoded) return null;
+  const raw = fromBase64(encoded);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
+
+function readStateFromStorage() {
+  const raw = localStorage.getItem(STATE_STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
+
+function applyViewState(view) {
+  if (!view) return;
+  zoom = Number.isFinite(view.zoom) ? view.zoom : zoom;
+  panX = Number.isFinite(view.panX) ? view.panX : panX;
+  panY = Number.isFinite(view.panY) ? view.panY : panY;
+  textOffsetX = Number.isFinite(view.textOffsetX) ? view.textOffsetX : textOffsetX;
+  textOffsetY = Number.isFinite(view.textOffsetY) ? view.textOffsetY : textOffsetY;
+  zoomLevel.textContent = Math.round(zoom * 100) + '%';
+}
+
+function selectTempCityFromState(info) {
+  if (!info || !Number.isFinite(info.lat) || !Number.isFinite(info.lon)) return null;
+  if (tempCityKey && CITIES[tempCityKey]) delete CITIES[tempCityKey];
+  tempCityKey = `temp-${Date.now()}`;
+  CITIES[tempCityKey] = {
+    name: info.name || 'Custom City',
+    country: info.country || '',
+    lat: info.lat,
+    lon: info.lon,
+    osm_id: info.osm_id || null
+  };
+  return tempCityKey;
+}
+
+function applyState(state) {
+  if (!state) return false;
+  applyingState = true;
+  
+  try {
+    if (state.ui) setUiTheme(state.ui, false);
+    if (state.theme && themeEl) themeEl.value = state.theme;
+    if (state.size && sizeSelect) sizeSelect.value = state.size;
+    if (state.orient && orientSelect) orientSelect.value = state.orient;
+    if (state.font && fontStyleEl) fontStyleEl.value = state.font;
+    if (state.radiusPreset && radiusPreset) radiusPreset.value = state.radiusPreset;
+    if (bleedToggle) bleedToggle.checked = !!state.bleed;
+    if (cityWeightEl && Number.isFinite(state.cityWeight)) cityWeightEl.value = state.cityWeight;
+    if (subtitleWeightEl && Number.isFinite(state.subtitleWeight)) subtitleWeightEl.value = state.subtitleWeight;
+    if (citySpacingEl && Number.isFinite(state.citySpacing)) citySpacingEl.value = state.citySpacing;
+    if (separatorStyleEl && state.separator) separatorStyleEl.value = state.separator;
+    updateSpacingLabel();
+    if (cityFontSizeEl && Number.isFinite(state.cityFontSize)) cityFontSizeEl.value = state.cityFontSize;
+    if (subtitleFontSizeEl && Number.isFinite(state.subtitleFontSize)) subtitleFontSizeEl.value = state.subtitleFontSize;
+    if (showCoordsEl) showCoordsEl.checked = !!state.showCoords;
+    if (waterEl) waterEl.checked = !!state.water;
+    
+    if (customCityEl) {
+      customCityEl.value = state.customCity || '';
+      if (customCityEl.value) customCityEl.dataset.userEdited = '1';
+      else delete customCityEl.dataset.userEdited;
+    }
+    if (customCountryEl) {
+      customCountryEl.value = state.customCountry || '';
+      if (customCountryEl.value) customCountryEl.dataset.userEdited = '1';
+      else delete customCountryEl.dataset.userEdited;
+    }
+    
+    pendingViewState = {
+      zoom: state.zoom,
+      panX: state.panX,
+      panY: state.panY,
+      textOffsetX: state.textOffsetX,
+      textOffsetY: state.textOffsetY
+    };
+    
+    let key = null;
+    if (state.cityKey && CITIES?.[state.cityKey]) key = state.cityKey;
+    else if (state.tempCity) key = selectTempCityFromState(state.tempCity);
+    
+    if (key) {
+      selectCity(key);
+      return true;
+    }
+  } finally {
+    applyingState = false;
+  }
+  
+  return false;
+}
 
 // Region mapping
 const REGIONS = {
@@ -1625,6 +1957,7 @@ function selectCity(key) {
   const active = cityListEl.querySelector(`[data-key="${key}"]`);
   if (active) active.classList.add('active');
   
+  scheduleStateSave();
   genBtn.click();
 }
 
@@ -1692,24 +2025,33 @@ if (textReset) {
     textOffsetX = 0;
     textOffsetY = 0;
     scheduleRender();
+    scheduleStateSave();
   };
 }
 
 // === UI THEME ===
-uiClassic.onclick = () => { document.body.dataset.ui = 'classic'; uiClassic.classList.add('active'); uiDark.classList.remove('active'); localStorage.setItem('ui', 'classic'); };
-uiDark.onclick = () => { document.body.dataset.ui = 'dark'; uiDark.classList.add('active'); uiClassic.classList.remove('active'); localStorage.setItem('ui', 'dark'); };
-if (localStorage.getItem('ui') === 'classic') uiClassic.click();
+uiClassic.onclick = () => { setUiTheme('classic'); scheduleStateSave(); };
+uiDark.onclick = () => { setUiTheme('dark'); scheduleStateSave(); };
+if (localStorage.getItem('ui') === 'classic') setUiTheme('classic', false);
 
-themeEl.onchange = () => { invalidatePreviewLayer(); if (data) render(canvas, themeEl.value, true); };
+themeEl.onchange = () => { invalidatePreviewLayer(); if (data) render(canvas, themeEl.value, true); scheduleStateSave(); };
 
 if (sizeSelect) {
   sizeSelect.onchange = () => {
     if (data) render(canvas, themeEl.value, true);
+    scheduleStateSave();
   };
 }
 if (orientSelect) {
   orientSelect.onchange = () => {
     if (data) render(canvas, themeEl.value, true);
+    scheduleStateSave();
+  };
+}
+if (radiusPreset) {
+  radiusPreset.onchange = () => {
+    scheduleStateSave();
+    if (place) genBtn.click();
   };
 }
 
@@ -1738,6 +2080,11 @@ function updatePreviewHint() {
   previewHint.classList.toggle('hidden', !show);
 }
 
+function updateSpacingLabel() {
+  if (!citySpacingVal || !citySpacingEl) return;
+  citySpacingVal.textContent = `${citySpacingEl.value}px`;
+}
+
 function setBoundaryDebug(info) {
   if (!boundaryDebugEl) return;
   if (!info) { boundaryDebugEl.textContent = 'Boundary: none'; return; }
@@ -1745,6 +2092,23 @@ function setBoundaryDebug(info) {
   const score = Number.isFinite(info.score) ? `score ${info.score}` : 'score ?';
   const name = info.name ? `name "${info.name}"` : '';
   boundaryDebugEl.textContent = `Boundary: rel ${info.id} (${lvl}, ${score}) ${name}`.trim();
+}
+
+function isMobileDevice() {
+  const ua = navigator.userAgent || '';
+  const isUA = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
+  const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  const small = Math.min(window.innerWidth, window.innerHeight) < 900;
+  return isUA || (coarse && small);
+}
+
+function updateMobileBlocker() {
+  const blocker = document.getElementById('mobileBlocker');
+  if (!blocker) return;
+  const blocked = isMobileDevice();
+  blocker.classList.toggle('active', blocked);
+  blocker.setAttribute('aria-hidden', blocked ? 'false' : 'true');
+  document.body.classList.toggle('mobile-blocked', blocked);
 }
 
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -1792,6 +2156,10 @@ function getSize() {
   return { w, h, orient: orientVal, label: sizeVal };
 }
 
+function getBleedPx() {
+  return bleedToggle?.checked ? BLEED_PX : 0;
+}
+
 function getExportMapTransform(size) {
   if (!previewRender) return null;
   if (zoom === 1 && panX === 0 && panY === 0) return null;
@@ -1834,7 +2202,14 @@ async function fetchWithRetry(url, options, retries = 3, timeoutMs = FETCH_TIMEO
       
       const res = await fetch(url, { ...(options || {}), signal: controller.signal });
       if (res.ok) return res;
-      if (res.status === 429 || res.status >= 500) { await delay((i + 1) * 2000); continue; }
+      if (res.status === 429 || res.status >= 500) {
+        const retryAfter = parseInt(res.headers.get('Retry-After') || '', 10);
+        const baseDelay = Math.min(10000, 1000 * Math.pow(2, i));
+        const jitter = Math.floor(Math.random() * 400);
+        const waitMs = Number.isFinite(retryAfter) ? retryAfter * 1000 : baseDelay + jitter;
+        await delay(waitMs);
+        continue;
+      }
       throw new Error(`HTTP ${res.status}`);
     } catch (e) {
       if (e?.name === 'AbortError') {
@@ -1843,7 +2218,9 @@ async function fetchWithRetry(url, options, retries = 3, timeoutMs = FETCH_TIMEO
       } else if (i === retries - 1) {
         throw e;
       }
-      await delay((i + 1) * 2000);
+      const baseDelay = Math.min(10000, 1000 * Math.pow(2, i));
+      const jitter = Math.floor(Math.random() * 400);
+      await delay(baseDelay + jitter);
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
       activeControllers.delete(controller);
@@ -1857,6 +2234,21 @@ async function fetchJsonWithRetry(url, options, retries = 3, timeoutMs = FETCH_T
   return await res.json();
 }
 
+async function fetchOverpass(query, retries = 3, timeoutMs = OVERPASS_TIMEOUT_MS, label) {
+  let lastErr = null;
+  for (let i = 0; i < OVERPASS_ENDPOINTS.length; i++) {
+    const endpoint = OVERPASS_ENDPOINTS[i];
+    try {
+      if (i > 0 && label) status(`${label} (trying backup ${i + 1}/${OVERPASS_ENDPOINTS.length})`, false, true);
+      const res = await fetchWithRetry(endpoint, { method: 'POST', body: query }, retries, timeoutMs);
+      return res;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('Overpass request failed');
+}
+
 async function fetchStreets(areaId, lat, lon, radius) {
   const types = ROAD_TYPES.join('|');
   const useArea = !!areaId;
@@ -1864,11 +2256,11 @@ async function fetchStreets(areaId, lat, lon, radius) {
     ? `[out:json][timeout:180];area(${areaId})->.a;way(area.a)["highway"~"^(${types})$"];out geom;`
     : `[out:json][timeout:180];way["highway"~"^(${types})$"](around:${radius},${lat},${lon});out geom;`;
   
-  const streetRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: streetQ }, 3, OVERPASS_TIMEOUT_MS);
+  const streetRes = await fetchOverpass(streetQ, 3, OVERPASS_TIMEOUT_MS, 'Overpass busy, fetching streets');
   const streetJson = await streetRes.json();
   if (useArea && (!streetJson.elements || streetJson.elements.length === 0)) {
     const fallbackQ = `[out:json][timeout:180];way["highway"~"^(${types})$"](around:${radius},${lat},${lon});out geom;`;
-    const fallbackRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: fallbackQ }, 2, OVERPASS_TIMEOUT_MS);
+    const fallbackRes = await fetchOverpass(fallbackQ, 2, OVERPASS_TIMEOUT_MS, 'Overpass busy, fetching streets');
     return await fallbackRes.json();
   }
   return streetJson;
@@ -1883,11 +2275,11 @@ async function fetchWater(areaId, lat, lon, radius) {
     : `[out:json][timeout:90];relation(around:${radius},${lat},${lon})["natural"="water"]->.rels;(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream|riverbank"](around:${radius},${lat},${lon});way["natural"="coastline"](around:${radius},${lat},${lon});way(r.rels););out geom;`;
   
   try {
-    const waterRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: waterQ }, 3, OVERPASS_TIMEOUT_MS);
+    const waterRes = await fetchOverpass(waterQ, 3, OVERPASS_TIMEOUT_MS, 'Overpass busy, fetching water');
     const waterJson = await waterRes.json();
     if (useArea && (!waterJson.elements || waterJson.elements.length === 0)) {
       const fallbackQ = `[out:json][timeout:90];(way["natural"="water"](around:${radius},${lat},${lon});way["waterway"~"river|canal|stream|riverbank"](around:${radius},${lat},${lon});way["natural"="coastline"](around:${radius},${lat},${lon}););out geom;`;
-      const fallbackRes = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: fallbackQ }, 2, OVERPASS_TIMEOUT_MS);
+      const fallbackRes = await fetchOverpass(fallbackQ, 2, OVERPASS_TIMEOUT_MS, 'Overpass busy, fetching water');
       return await fallbackRes.json();
     }
     return waterJson;
@@ -1998,7 +2390,7 @@ async function fetchBoundaryRelation(lat, lon, name, country, countryCode) {
     `);out tags;`;
   
   try {
-    const res = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: q }, 2, OVERPASS_TIMEOUT_MS);
+    const res = await fetchOverpass(q, 2, OVERPASS_TIMEOUT_MS, 'Overpass busy, resolving boundary');
     const json = await res.json();
     const rels = (json.elements || []).filter(e => e.type === 'relation');
     if (!rels.length) { cacheSet(BOUNDARY_CACHE, key, 0); return null; }
@@ -2062,7 +2454,7 @@ async function fetchBoundaryBounds(relationId) {
   
   try {
     const q = `[out:json][timeout:60];relation(${relationId});out bb;`;
-    const res = await fetchWithRetry('https://overpass-api.de/api/interpreter', { method: 'POST', body: q }, 2, OVERPASS_TIMEOUT_MS);
+    const res = await fetchOverpass(q, 2, OVERPASS_TIMEOUT_MS, 'Overpass busy, fetching boundary');
     const json = await res.json();
     const rel = (json.elements || []).find(e => e.type === 'relation');
     const bb = rel?.bounds;
@@ -2480,6 +2872,10 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
   const qualityScale = isPreview && cvs === canvas ? getQualityScale(zoom) : 1;
   const roadWeight = DEFAULT_ROAD_WEIGHT;
   const font = fontStyleEl?.value || 'system-ui, sans-serif';
+  const cityWeight = parseInt(cityWeightEl?.value || 300, 10);
+  const subtitleWeight = parseInt(subtitleWeightEl?.value || 400, 10);
+  const citySpacing = parseInt(citySpacingEl?.value || 10, 10);
+  const separatorStyle = separatorStyleEl?.value || 'line';
   const showCoords = showCoordsEl?.checked !== false;
   const { city, country } = getDisplayNames();
   const ignorePanZoom = options?.ignorePanZoom === true;
@@ -2582,10 +2978,10 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
   const baseCitySize = parseInt(cityFontSizeEl?.value || 48);
   const baseSubtitleSize = parseInt(subtitleFontSizeEl?.value || 18);
   const citySize = Math.round(baseCitySize * scale * (isLandscape ? 0.85 : 1));
-  ctx.font = `300 ${citySize}px ${font}`;
+  ctx.font = `${cityWeight} ${citySize}px ${font}`;
   ctx.fillStyle = theme.text;
   const cityUpper = city.toUpperCase();
-  const spacing = 10 * scale;
+  const spacing = citySpacing * scale;
   let tw = 0;
   for (const c of cityUpper) tw += ctx.measureText(c).width + spacing;
   tw -= spacing;
@@ -2593,11 +2989,20 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
   for (const c of cityUpper) { ctx.fillText(c, x + ctx.measureText(c).width / 2, textY); x += ctx.measureText(c).width + spacing; }
   
   const lineY = textY + citySize * 0.35;
-  ctx.strokeStyle = theme.text + '40'; ctx.lineWidth = scale;
-  ctx.beginPath(); ctx.moveTo(textX - 30*scale, lineY); ctx.lineTo(textX + 30*scale, lineY); ctx.stroke();
+  if (separatorStyle === 'line') {
+    ctx.strokeStyle = theme.text + '40'; ctx.lineWidth = scale;
+    ctx.beginPath(); ctx.moveTo(textX - 30*scale, lineY); ctx.lineTo(textX + 30*scale, lineY); ctx.stroke();
+  } else if (separatorStyle === 'dots') {
+    ctx.fillStyle = theme.text + '60';
+    const dotR = 2 * scale;
+    ctx.beginPath();
+    ctx.arc(textX - 26*scale, lineY, dotR, 0, Math.PI * 2);
+    ctx.arc(textX + 26*scale, lineY, dotR, 0, Math.PI * 2);
+    ctx.fill();
+  }
   
   const countrySize = Math.round(baseSubtitleSize * scale);
-  ctx.font = `400 ${countrySize}px ${font}`;
+  ctx.font = `${subtitleWeight} ${countrySize}px ${font}`;
   ctx.fillStyle = theme.text + 'cc';
   const countryUpper = country.toUpperCase();
   ctx.fillText(countryUpper, textX, lineY + countrySize * 1.4);
@@ -2641,13 +3046,20 @@ function render(cvs, themeKey, isPreview, scaleOverride, sizeOverride, options) 
   }
 }
 
-function renderSvg(themeKey, sizeOverride) {
+function renderSvg(themeKey, sizeOverride, options) {
   if (!data) return null;
   const size = sizeOverride || getSize();
   const { w, h, orient } = size;
+  const bleedPx = Math.max(0, options?.bleedPx || 0);
+  const svgW = w + bleedPx * 2;
+  const svgH = h + bleedPx * 2;
   const theme = THEMES[themeKey];
   const roadWeight = DEFAULT_ROAD_WEIGHT;
   const font = fontStyleEl?.value || 'system-ui, sans-serif';
+  const cityWeight = parseInt(cityWeightEl?.value || 300, 10);
+  const subtitleWeight = parseInt(subtitleWeightEl?.value || 400, 10);
+  const citySpacing = parseInt(citySpacingEl?.value || 10, 10);
+  const separatorStyle = separatorStyleEl?.value || 'line';
   const showCoords = showCoordsEl?.checked !== false;
   const { city, country } = getDisplayNames();
   const mapTransform = getExportMapTransform(size);
@@ -2754,6 +3166,17 @@ function renderSvg(themeKey, sizeOverride) {
   const citySize = Math.round(baseCitySize * (isLandscape ? 0.85 : 1));
   const countrySize = Math.round(baseSubtitleSize);
   const lineY = textY + citySize * 0.35;
+  const sepOffset = 30;
+  let separatorSvg = '';
+  if (separatorStyle === 'line') {
+    separatorSvg = `<line x1="${(textX - sepOffset).toFixed(2)}" y1="${lineY.toFixed(2)}" x2="${(textX + sepOffset).toFixed(2)}" y2="${lineY.toFixed(2)}" stroke="${textColor}40" stroke-width="1" />`;
+  } else if (separatorStyle === 'dots') {
+    const dotR = 2;
+    separatorSvg = [
+      `<circle cx="${(textX - 26).toFixed(2)}" cy="${lineY.toFixed(2)}" r="${dotR}" fill="${textColor}60" />`,
+      `<circle cx="${(textX + 26).toFixed(2)}" cy="${lineY.toFixed(2)}" r="${dotR}" fill="${textColor}60" />`
+    ].join('');
+  }
   
   const cityText = escapeXml((city || '').toUpperCase());
   const countryText = escapeXml((country || '').toUpperCase());
@@ -2761,9 +3184,9 @@ function renderSvg(themeKey, sizeOverride) {
     ? `${Math.abs(data.lat).toFixed(4)}°${data.lat >= 0 ? 'N' : 'S'}, ${Math.abs(data.lon).toFixed(4)}°${data.lon >= 0 ? 'E' : 'W'}`
     : '';
   
-  const svg = [
+  const content = [
     `<?xml version="1.0" encoding="UTF-8"?>`,
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">`,
     `<defs>`,
     `<linearGradient id="fadeTop" x1="0" y1="0" x2="0" y2="1">`,
     `<stop offset="0%" stop-color="${bgColor}" />`,
@@ -2775,17 +3198,31 @@ function renderSvg(themeKey, sizeOverride) {
     `</linearGradient>`,
     `</defs>`,
     `<rect width="100%" height="100%" fill="${bgColor}" />`,
-    mapGroup,
-    `<rect x="0" y="0" width="${w}" height="${fadeH}" fill="url(#fadeTop)" />`,
-    `<rect x="0" y="${mapTop + mapH - fadeH}" width="${w}" height="${fadeH * 1.5}" fill="url(#fadeBottom)" />`,
-    `<text x="${textX.toFixed(2)}" y="${textY.toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="${citySize}" font-weight="300" letter-spacing="10" fill="${textColor}">${cityText}</text>`,
-    `<line x1="${(textX - 30).toFixed(2)}" y1="${lineY.toFixed(2)}" x2="${(textX + 30).toFixed(2)}" y2="${lineY.toFixed(2)}" stroke="${textColor}40" stroke-width="1" />`,
-    `<text x="${textX.toFixed(2)}" y="${(lineY + countrySize * 1.4).toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="${countrySize}" font-weight="400" fill="${textColor}cc">${countryText}</text>`,
-    showCoords ? `<text x="${textX.toFixed(2)}" y="${(lineY + countrySize * 1.4 + 12 * 1.6).toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="12" font-weight="300" fill="${textColor}88">${escapeXml(coords)}</text>` : '',
+    bleedPx
+      ? `<g transform="translate(${fmtT(bleedPx)} ${fmtT(bleedPx)})">` +
+          [
+            mapGroup,
+            `<rect x="0" y="0" width="${w}" height="${fadeH}" fill="url(#fadeTop)" />`,
+            `<rect x="0" y="${mapTop + mapH - fadeH}" width="${w}" height="${fadeH * 1.5}" fill="url(#fadeBottom)" />`,
+            `<text x="${textX.toFixed(2)}" y="${textY.toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="${citySize}" font-weight="${cityWeight}" letter-spacing="${citySpacing}" fill="${textColor}">${cityText}</text>`,
+            separatorSvg,
+            `<text x="${textX.toFixed(2)}" y="${(lineY + countrySize * 1.4).toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="${countrySize}" font-weight="${subtitleWeight}" fill="${textColor}cc">${countryText}</text>`,
+            showCoords ? `<text x="${textX.toFixed(2)}" y="${(lineY + countrySize * 1.4 + 12 * 1.6).toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="12" font-weight="300" fill="${textColor}88">${escapeXml(coords)}</text>` : ''
+          ].filter(Boolean).join('') +
+        `</g>`
+      : [
+          mapGroup,
+          `<rect x="0" y="0" width="${w}" height="${fadeH}" fill="url(#fadeTop)" />`,
+          `<rect x="0" y="${mapTop + mapH - fadeH}" width="${w}" height="${fadeH * 1.5}" fill="url(#fadeBottom)" />`,
+          `<text x="${textX.toFixed(2)}" y="${textY.toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="${citySize}" font-weight="${cityWeight}" letter-spacing="${citySpacing}" fill="${textColor}">${cityText}</text>`,
+          separatorSvg,
+          `<text x="${textX.toFixed(2)}" y="${(lineY + countrySize * 1.4).toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="${countrySize}" font-weight="${subtitleWeight}" fill="${textColor}cc">${countryText}</text>`,
+          showCoords ? `<text x="${textX.toFixed(2)}" y="${(lineY + countrySize * 1.4 + 12 * 1.6).toFixed(2)}" text-anchor="middle" font-family="${escapeXml(font)}" font-size="12" font-weight="300" fill="${textColor}88">${escapeXml(coords)}</text>` : ''
+        ].filter(Boolean).join(''),
     `</svg>`
   ].filter(Boolean).join('');
   
-  return svg;
+  return content;
 }
 </script>
 <script>
@@ -2891,8 +3328,11 @@ genBtn.onclick = async () => {
     
     let boundaryBounds = null;
     if (boundaryInfo?.id) boundaryBounds = await fetchBoundaryBounds(boundaryInfo.id);
-    const radius = boundaryBounds ? radiusFromBounds(boundaryBounds) : DEFAULT_RADIUS;
-    lastFetch = { areaId, lat: place.lat, lon: place.lon, radius, boundaryBounds };
+    const preset = radiusPreset?.value || 'standard';
+    const mult = RADIUS_PRESETS[preset] || 1;
+    const baseRadius = boundaryBounds ? radiusFromBounds(boundaryBounds) : DEFAULT_RADIUS;
+    const radius = Math.min(MAX_RADIUS, Math.max(3000, Math.round(baseRadius * mult)));
+    lastFetch = { areaId, lat: place.lat, lon: place.lon, radius, boundaryBounds, radiusPreset: preset };
     
     // Step 2: Fetch streets
     setStep(2, 'active', 'Connecting to Overpass API...');
@@ -2963,6 +3403,13 @@ genBtn.onclick = async () => {
     canvasToolbar.classList.add('visible');
     scheduleFit();
     
+    if (pendingViewState) {
+      applyViewState(pendingViewState);
+      pendingViewState = null;
+      render(canvas, themeEl.value, true);
+    }
+    scheduleStateSave();
+    
   } catch (e) {
     console.error(e);
     status('Error: ' + e.message, true);
@@ -2972,6 +3419,7 @@ genBtn.onclick = async () => {
     loadingOverlay.classList.add('hidden');
     setTimeout(() => setProgress(null), 500);
     updatePreviewHint();
+    updateSpacingLabel();
   }
 };
 
@@ -2981,17 +3429,33 @@ dlBtn.onclick = () => {
   status('Generating full resolution...', false, true);
   const { city } = getDisplayNames();
   const size = getSize();
+  const bleedPx = getBleedPx();
   
-  offscreen.width = size.w;
-  offscreen.height = size.h;
   const mapTransform = getExportMapTransform(size);
-  render(offscreen, themeEl.value, false, 1, size, { mapTransform });
+  if (bleedPx > 0) {
+    const temp = document.createElement('canvas');
+    temp.width = size.w;
+    temp.height = size.h;
+    render(temp, themeEl.value, false, 1, size, { mapTransform });
+    
+    offscreen.width = size.w + bleedPx * 2;
+    offscreen.height = size.h + bleedPx * 2;
+    const ctx = offscreen.getContext('2d');
+    ctx.fillStyle = expandHex(THEMES[themeEl.value].bg);
+    ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+    ctx.drawImage(temp, bleedPx, bleedPx);
+  } else {
+    offscreen.width = size.w;
+    offscreen.height = size.h;
+    render(offscreen, themeEl.value, false, 1, size, { mapTransform });
+  }
   
   offscreen.toBlob(blob => {
     const a = document.createElement('a');
     const url = URL.createObjectURL(blob);
     a.href = url;
-    a.download = `${city.toLowerCase().replace(/\s+/g, '-')}-${size.label}-${size.orient}.png`;
+    const suffix = bleedPx > 0 ? '-bleed' : '';
+    a.download = `${city.toLowerCase().replace(/\s+/g, '-')}-${size.label}-${size.orient}${suffix}.png`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     status('Downloaded!');
@@ -3003,23 +3467,25 @@ dlSvgBtn.onclick = () => {
   status('Generating SVG...', false, true);
   const { city } = getDisplayNames();
   const size = getSize();
-  const svg = renderSvg(themeEl.value, size);
+  const bleedPx = getBleedPx();
+  const svg = renderSvg(themeEl.value, size, { bleedPx });
   if (!svg) { status('SVG export failed', true); return; }
   
   const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
   const a = document.createElement('a');
   const url = URL.createObjectURL(blob);
   a.href = url;
-  a.download = `${city.toLowerCase().replace(/\s+/g, '-')}-${size.label}-${size.orient}.svg`;
+  const suffix = bleedPx > 0 ? '-bleed' : '';
+  a.download = `${city.toLowerCase().replace(/\s+/g, '-')}-${size.label}-${size.orient}${suffix}.svg`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   status('Downloaded!');
 };
 
 // === ZOOM ===
-zoomIn.onclick = () => { zoom = Math.min(zoom * 1.2, 5); zoomLevel.textContent = Math.round(zoom * 100) + '%'; render(canvas, themeEl.value, true); };
-zoomOut.onclick = () => { zoom = Math.max(zoom / 1.2, 0.5); zoomLevel.textContent = Math.round(zoom * 100) + '%'; render(canvas, themeEl.value, true); };
-zoomReset.onclick = () => { zoom = 1; panX = 0; panY = 0; zoomLevel.textContent = '100%'; render(canvas, themeEl.value, true); };
+zoomIn.onclick = () => { zoom = Math.min(zoom * 1.2, 5); zoomLevel.textContent = Math.round(zoom * 100) + '%'; render(canvas, themeEl.value, true); scheduleStateSave(); };
+zoomOut.onclick = () => { zoom = Math.max(zoom / 1.2, 0.5); zoomLevel.textContent = Math.round(zoom * 100) + '%'; render(canvas, themeEl.value, true); scheduleStateSave(); };
+zoomReset.onclick = () => { zoom = 1; panX = 0; panY = 0; zoomLevel.textContent = '100%'; render(canvas, themeEl.value, true); scheduleStateSave(); };
 
 let renderQueued = false;
 let progressiveToken = 0;
@@ -3039,6 +3505,12 @@ function scheduleFit() {
     fitQueued = false;
     fitPreviewToViewport();
   });
+}
+
+function withRenderLock(task) {
+  const next = renderQueue.then(task, task);
+  renderQueue = next.catch(() => {});
+  return next;
 }
 
 function fitPreviewToViewport() {
@@ -3075,6 +3547,7 @@ function fitPreviewToViewport() {
 }
 
 window.addEventListener('resize', scheduleFit);
+window.addEventListener('resize', updateMobileBlocker);
 
 let isPanning = false, lastX, lastY, snapTimeout;
 const SNAP_THRESHOLD = 15;
@@ -3166,6 +3639,7 @@ document.onmouseup = () => {
   isPanning = false;
   isTextDragging = false;
   canvas.style.cursor = textMoveEnabled ? 'move' : 'grab';
+  scheduleStateSave();
 };
 
 canvas.onwheel = e => {
@@ -3182,6 +3656,7 @@ canvas.onwheel = e => {
   panY = (1 - scale) * cy + scale * panY;
   zoomLevel.textContent = Math.round(zoom * 100) + '%';
   scheduleRender();
+  scheduleStateSave();
 };
 
 // === COMPARE MODAL ===
@@ -3266,71 +3741,115 @@ batchStart.onclick = async () => {
   batchStart.disabled = true;
   batchLog.textContent = '';
   batchProgress.classList.add('active');
+  batchProgressBar.style.width = '0%';
   const results = [];
+  const total = lines.length;
+  let completed = 0;
+  let success = 0;
+  let failed = 0;
+  let active = 0;
+  const queue = [...lines];
   
-  for (let i = 0; i < lines.length; i++) {
-    const [cityName, countryName] = lines[i].split(',').map(s => s.trim());
-    batchStatus.textContent = `Processing ${i + 1}/${lines.length}: ${cityName}`;
-    batchProgressBar.style.width = ((i + 1) / lines.length * 100) + '%';
-    
-    try {
-      // Geocode
-      const geoData = await fetchGeocodeCached(cityName, countryName);
-      if (!geoData.features?.length) throw new Error('City not found');
-      
-      const feature = geoData.features[0];
-      const [lon, lat] = feature.geometry.coordinates;
-      const osmId = feature.properties.osm_id;
-      const osmType = feature.properties.osm_type;
-      
-      let areaId = null;
-      let boundaryInfo = null;
-      if (osmType === 'R' && osmId) { boundaryInfo = { id: osmId, adminLevel: '', name: cityName, score: 0 }; areaId = 3600000000 + osmId; }
-      if (!areaId) {
-        const altNames = extractNameHintsFromPhoton(feature);
-        const countryCode = feature?.properties?.countrycode || '';
-        boundaryInfo = await fetchBoundaryRelationFromNames(lat, lon, [cityName, ...altNames], countryName, countryCode);
-        if (boundaryInfo?.id) areaId = 3600000000 + boundaryInfo.id;
-      }
-      
-      let boundaryBounds = null;
-      if (boundaryInfo?.id) boundaryBounds = await fetchBoundaryBounds(boundaryInfo.id);
-      const batchRadius = boundaryBounds ? radiusFromBounds(boundaryBounds) : DEFAULT_RADIUS;
-      const streetFetch = await fetchStreetsCached(areaId, lat, lon, batchRadius);
-      const waterFetch = await fetchWaterCached(areaId, lat, lon, batchRadius);
-      const result = { streets: streetFetch.result, water: waterFetch.result };
-      let bounds = calcBounds(result.streets, result.water);
-      bounds = mergeBoundsSafe(bounds, boundaryBounds);
-      if (!bounds) bounds = fallbackBounds(lat, lon, batchRadius);
-      bounds = normalizeBounds(bounds);
-      
-      const tempData = { streets: result.streets, water: result.water, bounds, lat, lon, city: cityName, country: countryName };
-      tempData.groups = buildRoadGroups(tempData.streets.elements);
-      tempData.totalRoads = tempData.streets.elements?.length || 0;
-      tempData.totalWater = tempData.water.elements?.length || 0;
-      tempData.totalFeatures = tempData.totalRoads + tempData.totalWater;
-      const oldData = data;
-      data = tempData;
+  const updateStatus = () => {
+    batchStatus.textContent = `Processing ${completed}/${total} • ${success} ok, ${failed} failed${active ? ` • ${active} in flight` : ''}`;
+    batchProgressBar.style.width = ((completed / total) * 100) + '%';
+  };
+  updateStatus();
+  
+  async function processCity(cityName, countryName) {
+    for (let attempt = 1; attempt <= BATCH_MAX_RETRIES; attempt++) {
       try {
-        const [sizeVal, orientVal] = batchSize.value.split('-');
-        const size = { w: SIZES[sizeVal][orientVal][0], h: SIZES[sizeVal][orientVal][1], orient: orientVal, label: sizeVal };
+        const geoData = await fetchGeocodeCached(cityName, countryName);
+        if (!geoData.features?.length) throw new Error('City not found');
         
-        offscreen.width = size.w;
-        offscreen.height = size.h;
-        render(offscreen, batchTheme.value, false, 1, size);
+        const feature = geoData.features[0];
+        const [lon, lat] = feature.geometry.coordinates;
+        const osmId = feature.properties.osm_id;
+        const osmType = feature.properties.osm_type;
         
-        const blob = await new Promise(r => offscreen.toBlob(r, 'image/png'));
-        results.push({ name: `${cityName.toLowerCase().replace(/\s+/g, '-')}.png`, blob });
-        appendBatchLog(`✓ ${cityName}`, '#4a9eff');
-      } finally {
-        data = oldData;
+        let areaId = null;
+        let boundaryInfo = null;
+        if (osmType === 'R' && osmId) { boundaryInfo = { id: osmId, adminLevel: '', name: cityName, score: 0 }; areaId = 3600000000 + osmId; }
+        if (!areaId) {
+          const altNames = extractNameHintsFromPhoton(feature);
+          const countryCode = feature?.properties?.countrycode || '';
+          boundaryInfo = await fetchBoundaryRelationFromNames(lat, lon, [cityName, ...altNames], countryName, countryCode);
+          if (boundaryInfo?.id) areaId = 3600000000 + boundaryInfo.id;
+        }
+        
+        let boundaryBounds = null;
+        if (boundaryInfo?.id) boundaryBounds = await fetchBoundaryBounds(boundaryInfo.id);
+        const preset = radiusPreset?.value || 'standard';
+        const mult = RADIUS_PRESETS[preset] || 1;
+        const baseRadius = boundaryBounds ? radiusFromBounds(boundaryBounds) : DEFAULT_RADIUS;
+        const batchRadius = Math.min(MAX_RADIUS, Math.max(3000, Math.round(baseRadius * mult)));
+        const streetFetch = await fetchStreetsCached(areaId, lat, lon, batchRadius);
+        const waterFetch = await fetchWaterCached(areaId, lat, lon, batchRadius);
+        const result = { streets: streetFetch.result, water: waterFetch.result };
+        let bounds = calcBounds(result.streets, result.water);
+        bounds = mergeBoundsSafe(bounds, boundaryBounds);
+        if (!bounds) bounds = fallbackBounds(lat, lon, batchRadius);
+        bounds = normalizeBounds(bounds);
+        
+        const tempData = { streets: result.streets, water: result.water, bounds, lat, lon, city: cityName, country: countryName };
+        tempData.groups = buildRoadGroups(tempData.streets.elements);
+        tempData.totalRoads = tempData.streets.elements?.length || 0;
+        tempData.totalWater = tempData.water.elements?.length || 0;
+        tempData.totalFeatures = tempData.totalRoads + tempData.totalWater;
+        
+        return await withRenderLock(async () => {
+          const oldData = data;
+          data = tempData;
+          try {
+            const [sizeVal, orientVal] = batchSize.value.split('-');
+            const size = { w: SIZES[sizeVal][orientVal][0], h: SIZES[sizeVal][orientVal][1], orient: orientVal, label: sizeVal };
+            
+            offscreen.width = size.w;
+            offscreen.height = size.h;
+            render(offscreen, batchTheme.value, false, 1, size);
+            
+            const blob = await new Promise(r => offscreen.toBlob(r, 'image/png'));
+            return { name: `${cityName.toLowerCase().replace(/\s+/g, '-')}.png`, blob };
+          } finally {
+            data = oldData;
+          }
+        });
+      } catch (e) {
+        if (attempt < BATCH_MAX_RETRIES) {
+          appendBatchLog(`↻ ${cityName}: retrying (${attempt}/${BATCH_MAX_RETRIES})`, '#f5b942');
+          await delay(1000 * attempt);
+          continue;
+        }
+        throw e;
       }
-    } catch (e) {
-      appendBatchLog(`✗ ${cityName}: ${e.message}`, '#e55');
     }
-    
-    if (i < lines.length - 1) await new Promise(r => setTimeout(r, 2000));
   }
+  
+  async function worker() {
+    while (queue.length) {
+      const line = queue.shift();
+      if (!line) return;
+      const [cityName, countryName] = line.split(',').map(s => s.trim());
+      active += 1;
+      updateStatus();
+      try {
+        const result = await processCity(cityName, countryName);
+        if (result) results.push(result);
+        success += 1;
+        appendBatchLog(`✓ ${cityName}`, '#4a9eff');
+      } catch (e) {
+        failed += 1;
+        appendBatchLog(`✗ ${cityName}: ${e.message}`, '#e55');
+      } finally {
+        completed += 1;
+        active -= 1;
+        updateStatus();
+      }
+    }
+  }
+  
+  const workers = Array.from({ length: Math.min(BATCH_MAX_PARALLEL, total) }, () => worker());
+  await Promise.all(workers);
   
   // Download ZIP
   if (results.length) {
@@ -3347,7 +3866,7 @@ batchStart.onclick = async () => {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   
-  batchStatus.textContent = `Done! ${results.length}/${lines.length} generated`;
+  batchStatus.textContent = `Done! ${results.length}/${lines.length} generated${failed ? `, ${failed} failed` : ''}`;
   batchStart.disabled = false;
   batchProgress.classList.remove('active');
 };
@@ -3381,9 +3900,10 @@ waterEl.onchange = async () => {
     }
   }
   if (data) render(canvas, themeEl.value, true);
+  scheduleStateSave();
 };
-showCoordsEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
-fontStyleEl.onchange = () => { if (data) render(canvas, themeEl.value, true); };
+showCoordsEl.onchange = () => { if (data) render(canvas, themeEl.value, true); scheduleStateSave(); };
+fontStyleEl.onchange = () => { if (data) render(canvas, themeEl.value, true); scheduleStateSave(); };
 customCityEl.oninput = () => {
   if (!customCityEl.value.trim()) {
     delete customCityEl.dataset.userEdited;
@@ -3392,6 +3912,7 @@ customCityEl.oninput = () => {
     customCityEl.dataset.userEdited = '1';
   }
   if (data) render(canvas, themeEl.value, true);
+  scheduleStateSave();
 };
 customCountryEl.oninput = () => {
   if (!customCountryEl.value.trim()) {
@@ -3401,13 +3922,26 @@ customCountryEl.oninput = () => {
     customCountryEl.dataset.userEdited = '1';
   }
   if (data) render(canvas, themeEl.value, true);
+  scheduleStateSave();
 };
-cityFontSizeEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
-subtitleFontSizeEl.oninput = () => { if (data) render(canvas, themeEl.value, true); };
+cityFontSizeEl.oninput = () => { if (data) render(canvas, themeEl.value, true); scheduleStateSave(); };
+subtitleFontSizeEl.oninput = () => { if (data) render(canvas, themeEl.value, true); scheduleStateSave(); };
+if (bleedToggle) bleedToggle.onchange = () => { scheduleStateSave(); };
+if (cityWeightEl) cityWeightEl.onchange = () => { if (data) render(canvas, themeEl.value, true); scheduleStateSave(); };
+if (subtitleWeightEl) subtitleWeightEl.onchange = () => { if (data) render(canvas, themeEl.value, true); scheduleStateSave(); };
+if (separatorStyleEl) separatorStyleEl.onchange = () => { if (data) render(canvas, themeEl.value, true); scheduleStateSave(); };
+if (citySpacingEl) {
+  citySpacingEl.oninput = () => {
+    updateSpacingLabel();
+    if (data) render(canvas, themeEl.value, true);
+    scheduleStateSave();
+  };
+}
 
 // === INIT ===
 window.addEventListener('load', () => {
   try {
+    updateMobileBlocker();
     const debugBoundary = new URLSearchParams(window.location.search).has('debug') || localStorage.getItem('debugBoundary') === '1';
     if (debugBoundary) document.body.classList.add('debug');
 
@@ -3432,12 +3966,17 @@ window.addEventListener('load', () => {
 
     updatePreviewHint();
     
-    // Auto-load Austin
-    setTimeout(() => {
-      if (typeof selectCity === 'function') {
-        selectCity('austin');
-      }
-    }, 200);
+    // Restore state or auto-load Austin
+    const urlState = readStateFromUrl();
+    const storedState = urlState ? null : readStateFromStorage();
+    const applied = urlState ? applyState(urlState) : (storedState ? applyState(storedState) : false);
+    if (!applied) {
+      setTimeout(() => {
+        if (typeof selectCity === 'function') {
+          selectCity('austin');
+        }
+      }, 200);
+    }
   } catch (e) {
     console.error('Init error:', e);
   }

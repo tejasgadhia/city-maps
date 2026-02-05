@@ -162,7 +162,6 @@ const CITIES = {
   "addis-ababa": { name: "Addis Ababa", country: "Ethiopia", lat: 9.0320, lon: 38.7469, osm_id: 3170627 },
   "accra": { name: "Accra", country: "Ghana", lat: 5.6037, lon: -0.1870, osm_id: 8643085 },
   // South America
-  "bogota": { name: "Bogotá", country: "Colombia", lat: 4.7110, lon: -74.0721, osm_id: 7426387 },
   "medellin": { name: "Medellín", country: "Colombia", lat: 6.2476, lon: -75.5658, osm_id: 3702067 },
   "caracas": { name: "Caracas", country: "Venezuela", lat: 10.4806, lon: -66.9036, osm_id: 3666592 },
   "quito": { name: "Quito", country: "Ecuador", lat: -0.1807, lon: -78.4678, osm_id: 6404431 },
@@ -237,4 +236,8 @@ function searchCities(query) {
 // Get city by key
 function getCity(key) {
   return CITIES[key.toLowerCase().replace(/\s+/g, '-')] || null;
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = { CITIES, searchCities, getCity };
 }
