@@ -491,6 +491,26 @@
       display: none;
     }
     body.debug .boundary-debug { display: block; }
+    .api-debug {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      max-width: 320px;
+      background: rgba(15, 15, 15, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--text2);
+      white-space: pre-line;
+      z-index: 35;
+      display: none;
+      pointer-events: none;
+      box-shadow: 0 6px 22px rgba(0,0,0,0.35);
+    }
+    body.debug-api .api-debug { display: block; }
     .status-bar.loading {
       color: var(--accent);
       background: var(--bg2);
@@ -1263,6 +1283,7 @@
       </div>
     </div>
     <div class="boundary-debug" id="boundaryDebug"></div>
+    <div class="api-debug" id="apiDebug" aria-live="polite"></div>
     <div class="status-bar" id="status" aria-live="polite">Select a city to get started</div>
     <div class="progress" id="progress"><div class="progress-bar" id="progressBar"></div></div>
   </div>
@@ -1555,6 +1576,8 @@ const OVERPASS_ENDPOINTS = [
 const STATE_VERSION = 1;
 const STATE_STORAGE_KEY = 'maptoposter_state_v1';
 const URL_STATE_PARAM = 's';
+const API_DEBUG_PARAM = 'debugApi';
+const API_DEBUG_STORAGE_KEY = 'debugApi';
 const coreUtils = window.MapToPosterCore || {};
 const {
   runSharedRequest = (inflightMap, key, work) => {
@@ -1621,6 +1644,12 @@ let renderQueue = Promise.resolve();
 let applyingState = false;
 let pendingViewState = null;
 let stateSaveTimer = null;
+let apiDebugEnabled = false;
+const apiMetrics = {
+  startedAt: Date.now(),
+  overpass: { requests: 0, success: 0, errors: 0, timeouts: 0, retries: 0, totalMs: 0, lastError: '' },
+  photon: { requests: 0, success: 0, errors: 0, timeouts: 0, retries: 0, totalMs: 0, lastError: '' }
+};
 
 CACHE_POLICIES.set(STREET_CACHE, { maxEntries: 20, maxBytes: 8 * 1024 * 1024 });
 CACHE_POLICIES.set(WATER_CACHE, { maxEntries: 20, maxBytes: 5 * 1024 * 1024 });
@@ -1637,6 +1666,7 @@ const themeEl = $('theme'), waterEl = $('water'), showCoordsEl = $('showCoords')
 const fontStyleEl = $('fontStyle');
 const genBtn = $('generate'), dlBtn = $('download'), dlSvgBtn = $('downloadSvg'), compareBtn = $('compare'), batchBtn = $('batch');
 const statusEl = $('status'), boundaryDebugEl = $('boundaryDebug'), progressEl = $('progress'), progressBar = $('progressBar');
+const apiDebugEl = $('apiDebug');
 const previewHint = $('previewHint');
 const canvas = $('preview'), offscreen = $('offscreen');
 const modal = $('modal'), modalClose = $('modalClose'), themeGrid = $('themeGrid');
@@ -2155,6 +2185,68 @@ function setBoundaryDebug(info) {
   boundaryDebugEl.textContent = `Boundary: rel ${info.id} (${lvl}, ${score}) ${name}`.trim();
 }
 
+function syncApiDebugModeFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get(API_DEBUG_PARAM) === '1') localStorage.setItem(API_DEBUG_STORAGE_KEY, '1');
+  if (params.get(API_DEBUG_PARAM) === '0') localStorage.removeItem(API_DEBUG_STORAGE_KEY);
+}
+
+function isApiDebugModeEnabled() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get(API_DEBUG_PARAM) === '1') return true;
+  if (params.get(API_DEBUG_PARAM) === '0') return false;
+  return localStorage.getItem(API_DEBUG_STORAGE_KEY) === '1';
+}
+
+function apiMetricFor(service) {
+  if (!apiMetrics[service]) {
+    apiMetrics[service] = { requests: 0, success: 0, errors: 0, timeouts: 0, retries: 0, totalMs: 0, lastError: '' };
+  }
+  return apiMetrics[service];
+}
+
+function recordApiMetric(service, type, detail) {
+  if (!apiDebugEnabled) return;
+  const metric = apiMetricFor(service || 'overpass');
+  if (type === 'request') metric.requests += 1;
+  else if (type === 'success') {
+    metric.success += 1;
+    metric.totalMs += Number(detail?.ms || 0);
+  } else if (type === 'retry') metric.retries += 1;
+  else if (type === 'timeout') metric.timeouts += 1;
+  else if (type === 'error') {
+    metric.errors += 1;
+    metric.lastError = String(detail?.message || 'error').slice(0, 120);
+  }
+  updateApiDebugPanel();
+}
+
+function formatApiMetricLine(label, metric) {
+  const avgMs = metric.success ? Math.round(metric.totalMs / metric.success) : 0;
+  const errRate = metric.requests ? Math.round((metric.errors / metric.requests) * 100) : 0;
+  return `${label}: req ${metric.requests} ok ${metric.success} err ${metric.errors} t/o ${metric.timeouts} retry ${metric.retries} avg ${avgMs}ms errRate ${errRate}%`;
+}
+
+function updateApiDebugPanel() {
+  if (!apiDebugEl) return;
+  if (!apiDebugEnabled) {
+    apiDebugEl.textContent = '';
+    return;
+  }
+  const overpass = apiMetricFor('overpass');
+  const photon = apiMetricFor('photon');
+  const uptimeSec = Math.max(1, Math.round((Date.now() - apiMetrics.startedAt) / 1000));
+  const lines = [
+    'API Telemetry',
+    `uptime ${uptimeSec}s`,
+    formatApiMetricLine('overpass', overpass),
+    formatApiMetricLine('photon', photon)
+  ];
+  if (overpass.lastError) lines.push(`last overpass err: ${overpass.lastError}`);
+  if (photon.lastError) lines.push(`last photon err: ${photon.lastError}`);
+  apiDebugEl.textContent = lines.join('\n');
+}
+
 function isDesktopViewport() {
   return isDesktopViewportSize(window.innerWidth, window.innerHeight, DESKTOP_MIN_WIDTH, DESKTOP_MIN_HEIGHT);
 }
@@ -2276,12 +2368,15 @@ function applyMapTransform(ctx, size, transform) {
 </script>
 <script>
 // === FETCH DATA ===
-async function fetchWithRetry(url, options, retries = 3, timeoutMs = FETCH_TIMEOUT_MS) {
+async function fetchWithRetry(url, options, retries = 3, timeoutMs = FETCH_TIMEOUT_MS, meta) {
+  const service = meta?.service || 'overpass';
+  recordApiMetric(service, 'request');
   for (let i = 0; i < retries; i++) {
     let controller = new AbortController();
     let timeoutId = null;
     let didTimeout = false;
     let onAbort = null;
+    const startedAt = performance.now();
     
     try {
       if (options?.signal) {
@@ -2294,8 +2389,12 @@ async function fetchWithRetry(url, options, retries = 3, timeoutMs = FETCH_TIMEO
       activeControllers.add(controller);
       
       const res = await fetch(url, { ...(options || {}), signal: controller.signal });
-      if (res.ok) return res;
+      if (res.ok) {
+        recordApiMetric(service, 'success', { ms: performance.now() - startedAt });
+        return res;
+      }
       if (res.status === 429 || res.status >= 500) {
+        recordApiMetric(service, 'retry');
         const retryAfter = parseInt(res.headers.get('Retry-After') || '', 10);
         const baseDelay = Math.min(10000, 1000 * Math.pow(2, i));
         const jitter = Math.floor(Math.random() * 400);
@@ -2303,14 +2402,19 @@ async function fetchWithRetry(url, options, retries = 3, timeoutMs = FETCH_TIMEO
         await delay(waitMs);
         continue;
       }
+      recordApiMetric(service, 'error', { message: `HTTP ${res.status}` });
       throw new Error(`HTTP ${res.status}`);
     } catch (e) {
       if (e?.name === 'AbortError') {
+        if (didTimeout) recordApiMetric(service, 'timeout');
+        else recordApiMetric(service, 'error', { message: 'Request canceled' });
         const msg = didTimeout ? 'Request timed out' : 'Request canceled';
         throw new Error(msg);
       } else if (i === retries - 1) {
+        recordApiMetric(service, 'error', { message: e?.message || 'Request failed' });
         throw e;
       }
+      recordApiMetric(service, 'retry');
       const baseDelay = Math.min(10000, 1000 * Math.pow(2, i));
       const jitter = Math.floor(Math.random() * 400);
       await delay(baseDelay + jitter);
@@ -2322,8 +2426,8 @@ async function fetchWithRetry(url, options, retries = 3, timeoutMs = FETCH_TIMEO
   }
 }
 
-async function fetchJsonWithRetry(url, options, retries = 3, timeoutMs = FETCH_TIMEOUT_MS) {
-  const res = await fetchWithRetry(url, options, retries, timeoutMs);
+async function fetchJsonWithRetry(url, options, retries = 3, timeoutMs = FETCH_TIMEOUT_MS, meta) {
+  const res = await fetchWithRetry(url, options, retries, timeoutMs, meta);
   return await res.json();
 }
 
@@ -2333,7 +2437,7 @@ async function fetchOverpass(query, retries = 3, timeoutMs = OVERPASS_TIMEOUT_MS
     const endpoint = OVERPASS_ENDPOINTS[i];
     try {
       if (i > 0 && label) status(`${label} (trying backup ${i + 1}/${OVERPASS_ENDPOINTS.length})`, false, true);
-      const res = await fetchWithRetry(endpoint, { method: 'POST', body: query }, retries, timeoutMs);
+      const res = await fetchWithRetry(endpoint, { method: 'POST', body: query }, retries, timeoutMs, { service: 'overpass' });
       return res;
     } catch (e) {
       lastErr = e;
@@ -2416,7 +2520,7 @@ async function fetchGeocodeCached(cityName, countryName) {
   return await runSharedRequest(INFLIGHT_GEOCODE, key, async () => {
     const again = cacheGet(GEOCODE_CACHE, key);
     if (again) return again;
-    const data = await fetchJsonWithRetry(`https://photon.komoot.io/api/?q=${encodeURIComponent(cityName + ', ' + countryName)}&limit=1`, { method: 'GET' }, 2, PHOTON_TIMEOUT_MS);
+    const data = await fetchJsonWithRetry(`https://photon.komoot.io/api/?q=${encodeURIComponent(cityName + ', ' + countryName)}&limit=1`, { method: 'GET' }, 2, PHOTON_TIMEOUT_MS, { service: 'photon' });
     cacheSet(GEOCODE_CACHE, key, data);
     return data;
   });
@@ -4055,6 +4159,10 @@ if (citySpacingEl) {
 window.addEventListener('load', () => {
   try {
     updateDesktopBlocker();
+    syncApiDebugModeFromUrl();
+    apiDebugEnabled = isApiDebugModeEnabled();
+    document.body.classList.toggle('debug-api', apiDebugEnabled);
+    updateApiDebugPanel();
     const debugBoundary = new URLSearchParams(window.location.search).has('debug') || localStorage.getItem('debugBoundary') === '1';
     if (debugBoundary) document.body.classList.add('debug');
 

@@ -5,8 +5,11 @@
   "description": "MapToPoster desktop map poster generator",
   "scripts": {
     "test:unit": "node --test tests/unit/*.test.js",
-    "test:e2e": "playwright test",
-    "test": "npm run test:unit && npm run test:e2e"
+    "test:e2e": "playwright test tests/e2e/app.spec.js",
+    "test:visual": "playwright test tests/e2e/visual.spec.js",
+    "test:perf": "playwright test tests/e2e/perf.spec.js",
+    "test": "npm run test:unit && npm run test:e2e && npm run test:visual && npm run test:perf",
+    "test:ci": "npm run test"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.1"
