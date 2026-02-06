@@ -22,6 +22,9 @@
       --text3: #555;
       --accent: #4a9eff;
       --radius: 12px;
+      --left-col-w: 260px;
+      --right-col-w: 320px;
+      --ambient: radial-gradient(circle at 10% -20%, rgba(74, 158, 255, 0.14), transparent 40%);
     }
     
     [data-ui="classic"] {
@@ -34,11 +37,13 @@
       --text2: #5a5347;
       --text3: #8a8478;
       --accent: #2d7a54;
+      --ambient: radial-gradient(circle at 10% -20%, rgba(45, 122, 84, 0.14), transparent 40%);
     }
     
     body {
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: 'Sora', system-ui, -apple-system, sans-serif;
       background: var(--bg);
+      background-image: var(--ambient);
       color: var(--text);
       height: 100vh;
       overflow: hidden;
@@ -48,7 +53,7 @@
     /* === THREE COLUMN LAYOUT === */
     .app {
       display: grid;
-      grid-template-columns: 280px 1fr 320px;
+      grid-template-columns: var(--left-col-w) 1fr var(--right-col-w);
       grid-template-rows: auto 1fr;
       height: 100vh;
       gap: 0;
@@ -57,7 +62,7 @@
     /* === HEADER === */
     .header {
       grid-column: 1 / -1;
-      padding: 12px 20px;
+      padding: 10px 16px;
       background: var(--bg2);
       border-bottom: 1px solid var(--border);
       display: flex;
@@ -288,7 +293,7 @@
       align-items: center;
       justify-content: center;
       position: relative;
-      padding: 20px;
+      padding: 16px;
     }
     .canvas-wrapper {
       position: relative;
@@ -381,6 +386,7 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
       z-index: 20;
       max-width: calc(100% - 32px);
+      backdrop-filter: blur(8px);
     }
     .canvas-toolbar.visible { display: flex; }
     .toolbar-group {
@@ -468,6 +474,8 @@
       align-items: center;
       gap: 10px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      max-width: calc(100% - 40px);
+      text-align: center;
     }
     .boundary-debug {
       position: absolute;
@@ -714,10 +722,10 @@
     .col-options {
       background: var(--bg2);
       border-left: 1px solid var(--border);
-      padding: 16px;
+      padding: 12px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
       overflow-y: auto;
     }
     
@@ -725,7 +733,8 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 14px;
+      padding: 12px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.18);
     }
     .card-label {
       font-size: 10px;
@@ -908,7 +917,7 @@
       gap: 8px;
     }
     .btn {
-      padding: 12px 16px;
+      padding: 11px 14px;
       border: none;
       border-radius: 8px;
       font-size: 12px;
@@ -1070,9 +1079,9 @@
       color: var(--text2);
     }
 
-    /* Mobile Blocker */
-    body.mobile-blocked { overflow: hidden; }
-    .mobile-blocker {
+    /* Desktop Blocker */
+    body.desktop-blocked { overflow: hidden; }
+    .desktop-blocker {
       position: fixed;
       inset: 0;
       background: rgba(10,10,10,0.96);
@@ -1082,8 +1091,8 @@
       justify-content: center;
       padding: 24px;
     }
-    .mobile-blocker.active { display: flex; }
-    .mobile-card {
+    .desktop-blocker.active { display: flex; }
+    .desktop-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 16px;
@@ -1092,31 +1101,20 @@
       text-align: left;
       box-shadow: 0 10px 40px rgba(0,0,0,0.5);
     }
-    .mobile-card h2 {
+    .desktop-card h2 {
       font-size: 16px;
       letter-spacing: 1px;
       margin-bottom: 8px;
     }
-    .mobile-card p {
+    .desktop-card p {
       font-size: 13px;
       color: var(--text2);
       line-height: 1.5;
       margin-bottom: 10px;
     }
-    .mobile-card .tip {
+    .desktop-card .tip {
       font-size: 12px;
       color: var(--text3);
-    }
-    
-    /* Responsive */
-    @media (max-width: 1000px) {
-      .app { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr auto; }
-      .col-cities, .col-options { border: none; border-bottom: 1px solid var(--border); }
-      .canvas-toolbar button {
-        height: auto;
-        padding: 6px 10px;
-      }
-      .canvas-toolbar button::after { display: inline; }
     }
     
     /* Hidden helpers */
@@ -1124,12 +1122,12 @@
   </style>
 </head>
 <body data-ui="dark">
-<div class="mobile-blocker" id="mobileBlocker" role="dialog" aria-modal="true" aria-hidden="true">
-  <div class="mobile-card">
-    <h2>Desktop Required</h2>
-    <p>MapToPoster is built for desktop browsers where the canvas and export tools work reliably.</p>
-    <p>Please open this page on a laptop or desktop (Chrome, Firefox, or Safari).</p>
-    <p class="tip">If you're on a tablet, try switching to a desktop browser or enabling "Request Desktop Website."</p>
+<div class="desktop-blocker" id="desktopBlocker" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="desktop-card">
+    <h2>Desktop View Required</h2>
+    <p>MapToPoster is optimized for desktop editing and print exports.</p>
+    <p>Use a viewport at least 1100px wide and 700px tall for full access.</p>
+    <p class="tip">Resize your browser window or switch to a desktop/laptop display.</p>
   </div>
 </div>
 <div class="app">
@@ -1141,8 +1139,8 @@
     </div>
     <div class="header-right">
       <div class="theme-toggle">
-        <button id="uiClassic">Classic</button>
-        <button id="uiDark" class="active">Dark</button>
+        <button id="uiClassic" type="button" aria-pressed="false">Classic</button>
+        <button id="uiDark" type="button" class="active" aria-pressed="true">Dark</button>
       </div>
     </div>
   </header>
@@ -1153,13 +1151,13 @@
       <div class="col-title">Cities</div>
     </div>
     <div class="city-search">
-      <input type="text" id="citySearch" placeholder="Filter listed cities...">
+      <input type="text" id="citySearch" aria-label="Filter listed cities" placeholder="Filter listed cities...">
       <div class="quick-search">
         <button id="citySearchOpen" type="button">Search any city...</button>
       </div>
       <div class="city-filters">
         <div class="custom-select">
-          <select id="sortOrder">
+          <select id="sortOrder" aria-label="Sort cities">
             <option value="region">By Region</option>
             <option value="name">A → Z</option>
             <option value="name-desc">Z → A</option>
@@ -1232,20 +1230,20 @@
     <!-- Canvas Toolbar -->
     <div class="canvas-toolbar" id="canvasToolbar">
       <div class="toolbar-group">
-        <button id="zoomOut" title="Zoom Out" data-label="Zoom Out">−</button>
+        <button id="zoomOut" type="button" title="Zoom Out" aria-label="Zoom out map" data-label="Zoom Out">−</button>
         <span class="zoom-val" id="zoomLevel">100%</span>
-        <button id="zoomIn" title="Zoom In" data-label="Zoom In">+</button>
-        <button id="zoomReset" title="Reset View" data-label="Reset">↺</button>
+        <button id="zoomIn" type="button" title="Zoom In" aria-label="Zoom in map" data-label="Zoom In">+</button>
+        <button id="zoomReset" type="button" title="Reset View" aria-label="Reset map view" data-label="Reset">↺</button>
       </div>
       <div class="divider"></div>
       <div class="toolbar-group">
-        <button id="gridToggle" title="Toggle Grid" data-label="Grid">⊞</button>
-        <button id="snapToggle" title="Snap to Center" data-label="Snap" class="active">◎</button>
+        <button id="gridToggle" type="button" title="Toggle Grid" aria-label="Toggle alignment grid" aria-pressed="false" data-label="Grid">⊞</button>
+        <button id="snapToggle" type="button" title="Snap to Center" aria-label="Toggle snap to center" aria-pressed="true" data-label="Snap" class="active">◎</button>
       </div>
       <div class="divider"></div>
       <div class="toolbar-group">
-        <button id="textMoveToggle" title="Move Text" data-label="Move Text">T</button>
-        <button id="textReset" title="Reset Text Position" data-label="Reset Text">↺</button>
+        <button id="textMoveToggle" type="button" title="Move Text" aria-label="Toggle text drag mode" aria-pressed="false" data-label="Move Text">T</button>
+        <button id="textReset" type="button" title="Reset Text Position" aria-label="Reset text position" data-label="Reset Text">↺</button>
       </div>
     </div>
     
@@ -1265,7 +1263,7 @@
       </div>
     </div>
     <div class="boundary-debug" id="boundaryDebug"></div>
-    <div class="status-bar" id="status">Select a city to get started</div>
+    <div class="status-bar" id="status" aria-live="polite">Select a city to get started</div>
     <div class="progress" id="progress"><div class="progress-bar" id="progressBar"></div></div>
   </div>
   
@@ -1273,7 +1271,7 @@
   <div class="col-options">
     <div class="card">
       <div class="card-label">Map Theme</div>
-      <select id="theme"></select>
+      <select id="theme" aria-label="Map theme"></select>
     </div>
 
     <div class="card">
@@ -1281,7 +1279,7 @@
       <div class="card-row">
         <div class="field">
           <div class="field-label">Density</div>
-          <select id="radiusPreset">
+          <select id="radiusPreset" aria-label="Map density">
             <option value="tight">Tight</option>
             <option value="standard" selected>Standard</option>
             <option value="wide">Wide</option>
@@ -1299,27 +1297,27 @@
         <div class="card-row">
           <div class="field" style="flex:2;">
             <div class="field-label">Title</div>
-            <input type="text" id="customCity" placeholder="Auto-detect">
+            <input type="text" id="customCity" aria-label="Poster title text" placeholder="Auto-detect">
           </div>
           <div class="field" style="flex:1;">
             <div class="field-label">Size</div>
-            <input type="number" id="cityFontSize" value="48" min="24" max="96" step="2">
+            <input type="number" id="cityFontSize" aria-label="Poster title size" value="48" min="24" max="96" step="2">
           </div>
         </div>
         <div class="card-row">
           <div class="field" style="flex:2;">
             <div class="field-label">Subtitle (e.g., Country)</div>
-            <input type="text" id="customCountry" placeholder="Auto-detect">
+            <input type="text" id="customCountry" aria-label="Poster subtitle text" placeholder="Auto-detect">
           </div>
           <div class="field" style="flex:1;">
             <div class="field-label">Size</div>
-            <input type="number" id="subtitleFontSize" value="18" min="10" max="36" step="1">
+            <input type="number" id="subtitleFontSize" aria-label="Poster subtitle size" value="18" min="10" max="36" step="1">
           </div>
         </div>
         <div class="card-row">
           <div class="field">
             <div class="field-label">Font</div>
-            <select id="fontStyle">
+            <select id="fontStyle" aria-label="Poster font style">
               <option value="'Sora', system-ui, sans-serif">Sora Sans</option>
               <option value="'Cormorant Garamond', serif">Cormorant Serif</option>
               <option value="'IBM Plex Mono', 'Courier New', monospace">Plex Mono</option>
@@ -1329,7 +1327,7 @@
         <div class="card-row">
           <div class="field">
             <div class="field-label">City Weight</div>
-            <select id="cityWeight">
+            <select id="cityWeight" aria-label="Poster title weight">
               <option value="300">Light</option>
               <option value="400">Regular</option>
               <option value="500">Medium</option>
@@ -1339,7 +1337,7 @@
           </div>
           <div class="field">
             <div class="field-label">Subtitle Weight</div>
-            <select id="subtitleWeight">
+            <select id="subtitleWeight" aria-label="Poster subtitle weight">
               <option value="300">Light</option>
               <option value="400" selected>Regular</option>
               <option value="500">Medium</option>
@@ -1352,12 +1350,12 @@
             <span>Letter Spacing</span>
             <span id="citySpacingVal">10px</span>
           </div>
-          <input type="range" id="citySpacing" min="2" max="24" step="1" value="10">
+          <input type="range" id="citySpacing" aria-label="Letter spacing" min="2" max="24" step="1" value="10">
         </div>
         <div class="card-row">
           <div class="field">
             <div class="field-label">Separator</div>
-            <select id="separatorStyle">
+            <select id="separatorStyle" aria-label="Separator style">
               <option value="line">Line</option>
               <option value="dots">Dots</option>
               <option value="none">None</option>
@@ -1369,14 +1367,14 @@
         <div class="toggle-row">
           <span class="toggle-label">Show Coordinates</span>
           <label class="toggle-switch">
-            <input type="checkbox" id="showCoords" checked>
+            <input type="checkbox" id="showCoords" aria-label="Show coordinates" checked>
             <span class="slider"></span>
           </label>
         </div>
         <div class="toggle-row">
           <span class="toggle-label">Show Water Bodies</span>
           <label class="toggle-switch">
-            <input type="checkbox" id="water" checked>
+            <input type="checkbox" id="water" aria-label="Show water bodies" checked>
             <span class="slider"></span>
           </label>
         </div>
@@ -1389,7 +1387,7 @@
         <div class="card-row">
           <div class="field">
             <div class="field-label">Poster Size</div>
-            <select id="sizeSelect">
+            <select id="sizeSelect" aria-label="Poster size">
               <option value="5x7">5×7"</option>
               <option value="8x10">8×10"</option>
               <option value="11x14">11×14"</option>
@@ -1398,7 +1396,7 @@
           </div>
           <div class="field">
             <div class="field-label">Orientation</div>
-            <select id="orientSelect">
+            <select id="orientSelect" aria-label="Poster orientation">
               <option value="portrait">Portrait</option>
               <option value="landscape">Landscape</option>
             </select>
@@ -1409,7 +1407,7 @@
         <div class="toggle-row">
           <span class="toggle-label">Include Bleed (0.125")</span>
           <label class="toggle-switch">
-            <input type="checkbox" id="bleedToggle">
+            <input type="checkbox" id="bleedToggle" aria-label="Include bleed margin">
             <span class="slider"></span>
           </label>
         </div>
@@ -1418,18 +1416,18 @@
         </div>
       </div>
       <div class="card-actions">
-        <button class="btn btn-primary" id="generate">Regenerate Preview</button>
+        <button class="btn btn-primary" id="generate" type="button">Regenerate Preview</button>
         <div class="btn-row">
-          <button class="btn btn-secondary" id="download" disabled>PNG</button>
-          <button class="btn btn-secondary" id="downloadSvg" disabled>SVG</button>
+          <button class="btn btn-secondary" id="download" type="button" disabled>PNG</button>
+          <button class="btn btn-secondary" id="downloadSvg" type="button" disabled>SVG</button>
         </div>
         <div class="info-text">
           <strong>PNG</strong> — Raster image, best for printing and sharing. Fixed resolution at 300 DPI.<br>
           <strong>SVG</strong> — Vector format, infinitely scalable. Best for large prints or editing.
         </div>
         <div class="btn-row" style="margin-top:8px;">
-          <button class="btn btn-secondary" id="compare" disabled>Compare Themes</button>
-          <button class="btn btn-secondary" id="batch">Batch</button>
+          <button class="btn btn-secondary" id="compare" type="button" disabled>Compare Themes</button>
+          <button class="btn btn-secondary" id="batch" type="button">Batch</button>
         </div>
       </div>
     </div>
@@ -1444,11 +1442,11 @@
   <div class="modal-content" style="max-width:520px;">
     <div class="modal-header">
       <h2 id="searchTitle">SEARCH CITY</h2>
-      <button class="modal-close" id="searchClose" aria-label="Close">×</button>
+      <button class="modal-close" id="searchClose" type="button" aria-label="Close">×</button>
     </div>
     <div class="modal-body">
       <p style="margin-bottom:12px; color:var(--text2); font-size:13px;">Search any city (e.g., "Paris, France")</p>
-      <input type="text" id="cityQuickSearch" placeholder="Search any city..." style="width:100%; padding:10px 12px; margin-bottom:12px; background:var(--bg); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:13px;">
+      <input type="text" id="cityQuickSearch" aria-label="Search city query" placeholder="Search any city..." style="width:100%; padding:10px 12px; margin-bottom:12px; background:var(--bg); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:13px;">
       <button class="btn btn-primary" id="cityQuickBtn" type="button" style="width:100%;">Find</button>
     </div>
   </div>
@@ -1459,7 +1457,7 @@
   <div class="modal-content">
     <div class="modal-header">
       <h2 id="compareTitle">COMPARE THEMES</h2>
-      <button class="modal-close" id="modalClose" aria-label="Close">×</button>
+      <button class="modal-close" id="modalClose" type="button" aria-label="Close">×</button>
     </div>
     <div class="modal-body">
       <div class="theme-grid" id="themeGrid"></div>
@@ -1472,14 +1470,14 @@
   <div class="modal-content">
     <div class="modal-header">
       <h2 id="batchTitle">BATCH MODE</h2>
-      <button class="modal-close" id="batchClose" aria-label="Close">×</button>
+      <button class="modal-close" id="batchClose" type="button" aria-label="Close">×</button>
     </div>
     <div class="modal-body">
       <p style="margin-bottom:12px; color:var(--text2); font-size:13px;">Enter one city per line (e.g., "Paris, France")</p>
-      <textarea class="batch-input" id="batchInput" placeholder="Paris, France&#10;Tokyo, Japan&#10;New York, USA"></textarea>
+      <textarea class="batch-input" id="batchInput" aria-label="Batch city list" placeholder="Paris, France&#10;Tokyo, Japan&#10;New York, USA"></textarea>
       <div class="batch-options">
-        <select id="batchTheme"></select>
-        <select id="batchSize">
+        <select id="batchTheme" aria-label="Batch theme"></select>
+        <select id="batchSize" aria-label="Batch poster size">
           <option value="5x7-portrait">5×7" Portrait</option>
           <option value="5x7-landscape">5×7" Landscape</option>
           <option value="8x10-portrait">8×10" Portrait</option>
@@ -1489,7 +1487,7 @@
           <option value="16x20-portrait">16×20" Portrait</option>
           <option value="16x20-landscape">16×20" Landscape</option>
         </select>
-        <button class="btn btn-primary" id="batchStart">Start Batch</button>
+        <button class="btn btn-primary" id="batchStart" type="button">Start Batch</button>
       </div>
       <div class="progress" id="batchProgress"><div class="progress-bar" id="batchProgressBar"></div></div>
       <div id="batchStatus" style="font-size:12px; color:var(--text2); margin-top:8px;"></div>
@@ -1546,6 +1544,8 @@ const PREVIEW_FAST_THRESHOLD = 25000;
 const PREVIEW_CHUNK_SIZE = 400;
 const BATCH_MAX_PARALLEL = 2;
 const BATCH_MAX_RETRIES = 2;
+const DESKTOP_MIN_WIDTH = 1100;
+const DESKTOP_MIN_HEIGHT = 700;
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
@@ -1631,8 +1631,17 @@ const separatorStyleEl = $('separatorStyle');
 
 function setUiTheme(mode, persist = true) {
   document.body.dataset.ui = mode;
-  if (mode === 'classic') { uiClassic.classList.add('active'); uiDark.classList.remove('active'); }
-  else { uiDark.classList.add('active'); uiClassic.classList.remove('active'); }
+  if (mode === 'classic') {
+    uiClassic.classList.add('active');
+    uiDark.classList.remove('active');
+    uiClassic.setAttribute('aria-pressed', 'true');
+    uiDark.setAttribute('aria-pressed', 'false');
+  } else {
+    uiDark.classList.add('active');
+    uiClassic.classList.remove('active');
+    uiDark.setAttribute('aria-pressed', 'true');
+    uiClassic.setAttribute('aria-pressed', 'false');
+  }
   if (persist) localStorage.setItem('ui', mode);
 }
 
@@ -2019,17 +2028,20 @@ gridToggle.onclick = () => {
   showGrid = !showGrid;
   gridOverlay.classList.toggle('visible', showGrid);
   gridToggle.classList.toggle('active', showGrid);
+  gridToggle.setAttribute('aria-pressed', showGrid ? 'true' : 'false');
 };
 
 snapToggle.onclick = () => {
   snapEnabled = !snapEnabled;
   snapToggle.classList.toggle('active', snapEnabled);
+  snapToggle.setAttribute('aria-pressed', snapEnabled ? 'true' : 'false');
 };
 
 if (textMoveToggle) {
   textMoveToggle.onclick = () => {
     textMoveEnabled = !textMoveEnabled;
     textMoveToggle.classList.toggle('active', textMoveEnabled);
+    textMoveToggle.setAttribute('aria-pressed', textMoveEnabled ? 'true' : 'false');
     if (!textMoveEnabled) isTextDragging = false;
     canvas.style.cursor = textMoveEnabled ? 'move' : 'grab';
   };
@@ -2108,21 +2120,17 @@ function setBoundaryDebug(info) {
   boundaryDebugEl.textContent = `Boundary: rel ${info.id} (${lvl}, ${score}) ${name}`.trim();
 }
 
-function isMobileDevice() {
-  const ua = navigator.userAgent || '';
-  const isUA = /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
-  const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-  const small = Math.min(window.innerWidth, window.innerHeight) < 900;
-  return isUA || (coarse && small);
+function isDesktopViewport() {
+  return window.innerWidth >= DESKTOP_MIN_WIDTH && window.innerHeight >= DESKTOP_MIN_HEIGHT;
 }
 
-function updateMobileBlocker() {
-  const blocker = document.getElementById('mobileBlocker');
+function updateDesktopBlocker() {
+  const blocker = document.getElementById('desktopBlocker');
   if (!blocker) return;
-  const blocked = isMobileDevice();
+  const blocked = !isDesktopViewport();
   blocker.classList.toggle('active', blocked);
   blocker.setAttribute('aria-hidden', blocked ? 'false' : 'true');
-  document.body.classList.toggle('mobile-blocked', blocked);
+  document.body.classList.toggle('desktop-blocked', blocked);
 }
 
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
@@ -3654,7 +3662,7 @@ function fitPreviewToViewport() {
 }
 
 window.addEventListener('resize', scheduleFit);
-window.addEventListener('resize', updateMobileBlocker);
+window.addEventListener('resize', updateDesktopBlocker);
 
 let isPanning = false, lastX, lastY, snapTimeout;
 const SNAP_THRESHOLD = 15;
@@ -3818,7 +3826,7 @@ compareBtn.onclick = () => {
     card.appendChild(cvs);
     const info = document.createElement('div');
     info.className = 'theme-card-info';
-    info.innerHTML = `<span class="theme-card-name">${theme.name}</span><button class="btn btn-primary" style="padding:6px 12px; font-size:10px;">Select</button>`;
+    info.innerHTML = `<span class="theme-card-name">${theme.name}</span><button type="button" class="btn btn-primary" style="padding:6px 12px; font-size:10px;">Select</button>`;
     info.querySelector('button').onclick = () => { themeEl.value = key; render(canvas, key, true); closeModal(modal); };
     card.appendChild(info);
     themeGrid.appendChild(card);
@@ -4048,7 +4056,7 @@ if (citySpacingEl) {
 // === INIT ===
 window.addEventListener('load', () => {
   try {
-    updateMobileBlocker();
+    updateDesktopBlocker();
     const debugBoundary = new URLSearchParams(window.location.search).has('debug') || localStorage.getItem('debugBoundary') === '1';
     if (debugBoundary) document.body.classList.add('debug');
 
