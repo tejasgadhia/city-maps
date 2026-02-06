@@ -167,3 +167,12 @@ test('shareable URL state restores city and view settings', async ({ browser }) 
   await expect(pageB.locator('#zoomLevel')).not.toHaveText('100%');
   await contextB.close();
 });
+
+test('api debug mode displays reliability telemetry', async ({ page }) => {
+  await setupMockApis(page);
+  await page.goto(`${APP_URL}?debugApi=1`);
+  await expect(page.locator('#status')).toContainText('roads', { timeout: 15000 });
+  await expect(page.locator('body')).toHaveClass(/debug-api/);
+  await expect(page.locator('#apiDebug')).toContainText('API Telemetry');
+  await expect(page.locator('#apiDebug')).toContainText('overpass: req');
+});

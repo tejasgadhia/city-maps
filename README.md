@@ -106,7 +106,7 @@ Run full automated tests:
 ```bash
 npm ci
 npx playwright install chromium
-npm run test
+npm run test:ci
 ```
 
 See `TESTING.md` for detailed test coverage and CI workflow.
