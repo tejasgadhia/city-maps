@@ -102,6 +102,15 @@ Validate city data:
 node scripts/validate-cities.js
 ```
 
+Run full automated tests:
+```bash
+npm ci
+npx playwright install chromium
+npm run test
+```
+
+See `TESTING.md` for detailed test coverage and CI workflow.
+
 ## File Structure
 
 ```
