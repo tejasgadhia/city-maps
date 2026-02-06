@@ -1499,6 +1499,7 @@
 <canvas id="offscreen"></canvas>
 
 <script src="cities.js"></script>
+<script src="scripts/core-utils.js"></script>
 <script>
 const THEMES = {
   noir: { name: "Noir", desc: "Classic dark", bg: "#0a0a0a", text: "#fff", water: "#151520", roads: ["#fff","#ccc","#999","#666","#444"] },
@@ -1554,6 +1555,40 @@ const OVERPASS_ENDPOINTS = [
 const STATE_VERSION = 1;
 const STATE_STORAGE_KEY = 'maptoposter_state_v1';
 const URL_STATE_PARAM = 's';
+const coreUtils = window.MapToPosterCore || {};
+const {
+  runSharedRequest = (inflightMap, key, work) => {
+    if (inflightMap.has(key)) return inflightMap.get(key);
+    const task = Promise.resolve()
+      .then(work)
+      .finally(() => inflightMap.delete(key));
+    inflightMap.set(key, task);
+    return task;
+  },
+  estimateCacheEntryBytes = value => {
+    try {
+      const raw = JSON.stringify(value);
+      if (!raw) return 64;
+      return Math.min(raw.length * 2, 8 * 1024 * 1024);
+    } catch (e) {
+      return 256;
+    }
+  },
+  cacheKey = (areaId, lat, lon, radius) => areaId
+    ? `a${areaId}`
+    : `r${Number(lat).toFixed(4)}:${Number(lon).toFixed(4)}:${radius}`,
+  shouldAppendEndpoint = (lastX, lastY, x, y) => lastX === null || lastY === null || Math.abs(x - lastX) > 0.001 || Math.abs(y - lastY) > 0.001,
+  isDesktopViewportSize = (width, height, minWidth, minHeight) => Number(width) >= Number(minWidth) && Number(height) >= Number(minHeight),
+  canvasToPngBlob = canvas => new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (!blob) {
+        reject(new Error('PNG export failed. Please retry.'));
+        return;
+      }
+      resolve(blob);
+    }, 'image/png');
+  })
+} = coreUtils;
 
 let place = null, data = null, zoom = 1, panX = 0, panY = 0, currentCity = null;
 let previewRender = null;
@@ -2121,7 +2156,7 @@ function setBoundaryDebug(info) {
 }
 
 function isDesktopViewport() {
-  return window.innerWidth >= DESKTOP_MIN_WIDTH && window.innerHeight >= DESKTOP_MIN_HEIGHT;
+  return isDesktopViewportSize(window.innerWidth, window.innerHeight, DESKTOP_MIN_WIDTH, DESKTOP_MIN_HEIGHT);
 }
 
 function updateDesktopBlocker() {
@@ -2140,14 +2175,6 @@ function abortActiveRequests() {
   activeControllers.clear();
 }
 
-function runSharedRequest(inflightMap, key, work) {
-  if (inflightMap.has(key)) return inflightMap.get(key);
-  const task = (async () => await work())()
-    .finally(() => inflightMap.delete(key));
-  inflightMap.set(key, task);
-  return task;
-}
-
 function cachePolicy(map) {
   return CACHE_POLICIES.get(map) || { maxEntries: CACHE_MAX_ENTRIES, maxBytes: CACHE_DEFAULT_MAX_BYTES };
 }
@@ -2158,16 +2185,6 @@ function cacheBytes(map) {
 
 function setCacheBytes(map, value) {
   CACHE_BYTES.set(map, Math.max(0, value));
-}
-
-function estimateCacheEntryBytes(value) {
-  try {
-    const raw = JSON.stringify(value);
-    if (!raw) return 64;
-    return Math.min(raw.length * 2, 8 * 1024 * 1024);
-  } catch (e) {
-    return 256;
-  }
 }
 
 function cacheDelete(map, key, entry) {
@@ -2181,11 +2198,6 @@ function pruneExpiredCache(map, now = Date.now()) {
   for (const [k, entry] of map.entries()) {
     if (now - entry.ts > CACHE_TTL_MS) cacheDelete(map, k, entry);
   }
-}
-
-function cacheKey(areaId, lat, lon, radius) {
-  const id = areaId ? `a${areaId}` : `r${lat.toFixed(4)}:${lon.toFixed(4)}:${radius}`;
-  return id;
 }
 
 function cacheGet(map, key) {
@@ -2220,18 +2232,6 @@ function cacheSet(map, key, value) {
     if (!oldestKey || !oldestEntry) break;
     cacheDelete(map, oldestKey, oldestEntry);
   }
-}
-
-async function canvasToPngBlob(cvs) {
-  return await new Promise((resolve, reject) => {
-    cvs.toBlob(blob => {
-      if (!blob) {
-        reject(new Error('PNG export failed. Please retry.'));
-        return;
-      }
-      resolve(blob);
-    }, 'image/png');
-  });
 }
 
 function escapeOverpass(value) {
@@ -2766,8 +2766,7 @@ function drawGeometry(ctx, geom, proj, minDistSq, step = 1) {
   if (step > 1) {
     const p = geom[lastIndex];
     const [x, y] = proj(p.lat, p.lon);
-    const moved = lastX === null || Math.abs(x - lastX) > 0.001 || Math.abs(y - lastY) > 0.001;
-    if (moved) ctx.lineTo(x, y);
+    if (shouldAppendEndpoint(lastX, lastY, x, y)) ctx.lineTo(x, y);
   }
 }
 
@@ -2797,8 +2796,7 @@ function buildProjectedGeometry(layout, step, minDistSq) {
     if (step > 1) {
       const p = geom[lastIndex];
       const [x, y] = proj(p.lat, p.lon);
-      const moved = lastX === null || Math.abs(x - lastX) > 0.001 || Math.abs(y - lastY) > 0.001;
-      if (moved) points.push(x, y);
+      if (shouldAppendEndpoint(lastX, lastY, x, y)) points.push(x, y);
     }
     return points;
   };

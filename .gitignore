@@ -13,3 +13,6 @@ docs/test-results/
 docs/issues/
 docs/future/
 .ui-design/reviews/
+node_modules/
+playwright-report/
+test-results/

@@ -1,0 +1,14 @@
+{
+  "name": "city-maps",
+  "version": "0.6.1",
+  "private": true,
+  "description": "MapToPoster desktop map poster generator",
+  "scripts": {
+    "test:unit": "node --test tests/unit/*.test.js",
+    "test:e2e": "playwright test",
+    "test": "npm run test:unit && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.1"
+  }
+}
