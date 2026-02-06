@@ -1,6 +1,6 @@
 const path = require('path');
 const { test, expect } = require('@playwright/test');
-const { setupMockApis } = require('../fixtures/network');
+const { setupMockApis, setupMockJsZip } = require('../fixtures/network');
 
 const APP_URL = `file://${path.resolve(__dirname, '..', '..', 'index.html')}`;
 
@@ -106,4 +106,64 @@ test('keyboard focus trap and control labels are present', async ({ page }) => {
 
   await page.keyboard.press('Escape');
   await expect(page.locator('#batchModal')).not.toHaveClass(/open/);
+});
+
+test('batch mode creates zip download with mocked JSZip', async ({ page }) => {
+  await setupMockApis(page);
+  const jszip = await setupMockJsZip(page);
+  await page.addInitScript(() => {
+    window.__lastDownloadName = '';
+    window.__downloadCount = 0;
+    HTMLAnchorElement.prototype.click = function patchedClick() {
+      window.__downloadCount += 1;
+      window.__lastDownloadName = this.download || '';
+    };
+  });
+
+  await page.goto(APP_URL);
+  await expect(page.locator('#status')).toContainText('roads', { timeout: 15000 });
+  await page.click('#batch');
+  await page.fill('#batchInput', 'Austin, United States\nSeattle, United States');
+  await page.click('#batchStart');
+
+  await expect(page.locator('#batchStatus')).toContainText('Done! 2/2 generated', { timeout: 25000 });
+  expect(jszip.imports).toBeGreaterThanOrEqual(1);
+  const downloadInfo = await page.evaluate(() => ({
+    jszipImports: window.__jszipImportCount || 0,
+    jszipGenerations: window.__jszipGenerateCount || 0,
+    lastName: window.__lastDownloadName,
+    count: window.__downloadCount
+  }));
+
+  expect(downloadInfo.jszipImports).toBeGreaterThanOrEqual(1);
+  expect(downloadInfo.jszipGenerations).toBe(1);
+  expect(downloadInfo.lastName).toBe('map-posters.zip');
+  expect(downloadInfo.count).toBeGreaterThanOrEqual(1);
+});
+
+test('shareable URL state restores city and view settings', async ({ browser }) => {
+  const contextA = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const pageA = await contextA.newPage();
+  await setupMockApis(pageA);
+  await pageA.goto(APP_URL);
+  await expect(pageA.locator('#status')).toContainText('roads', { timeout: 15000 });
+
+  await pageA.selectOption('#theme', 'sunset');
+  await pageA.fill('#customCity', 'Austin Reloaded');
+  await pageA.click('#zoomIn');
+  await pageA.click('#zoomIn');
+  await pageA.waitForTimeout(500);
+  await expect.poll(() => pageA.url()).toContain('s=');
+  const sharedUrl = pageA.url();
+  await contextA.close();
+
+  const contextB = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const pageB = await contextB.newPage();
+  await setupMockApis(pageB);
+  await pageB.goto(sharedUrl);
+  await expect(pageB.locator('#status')).toContainText('roads', { timeout: 15000 });
+  await expect(pageB.locator('#theme')).toHaveValue('sunset');
+  await expect(pageB.locator('#customCity')).toHaveValue('Austin Reloaded');
+  await expect(pageB.locator('#zoomLevel')).not.toHaveText('100%');
+  await contextB.close();
 });

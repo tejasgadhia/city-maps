@@ -161,4 +161,28 @@ async function setupMockApis(page) {
   return counts;
 }
 
-module.exports = { setupMockApis };
+async function setupMockJsZip(page) {
+  const stats = { imports: 0 };
+  await page.route('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm', async route => {
+    stats.imports += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: [
+        'globalThis.__jszipImportCount = (globalThis.__jszipImportCount || 0) + 1;',
+        'export default class JSZip {',
+        '  constructor() { this._files = []; }',
+        '  file(name, blob) { this._files.push({ name, blob }); return this; }',
+        '  async generateAsync() {',
+        '    globalThis.__jszipGenerateCount = (globalThis.__jszipGenerateCount || 0) + 1;',
+        '    const names = this._files.map(f => f.name).join(\"\\n\");',
+        '    return new Blob([names], { type: \"application/zip\" });',
+        '  }',
+        '}'
+      ].join('\n')
+    });
+  });
+  return stats;
+}
+
+module.exports = { setupMockApis, setupMockJsZip };
