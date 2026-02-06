@@ -1534,6 +1534,7 @@ const OVERPASS_TIMEOUT_MS = 60000;
 const PHOTON_TIMEOUT_MS = 15000;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 20;
+const CACHE_DEFAULT_MAX_BYTES = 1024 * 1024;
 const DEFAULT_ROAD_WEIGHT = 1;
 const DEFAULT_RADIUS = 10000;
 const MAX_RADIUS = 60000;
@@ -1564,6 +1565,13 @@ const WATER_CACHE = new Map();
 const GEOCODE_CACHE = new Map();
 const BOUNDARY_CACHE = new Map();
 const BOUNDARY_BOUNDS_CACHE = new Map();
+const CACHE_BYTES = new WeakMap();
+const CACHE_POLICIES = new WeakMap();
+const INFLIGHT_STREET = new Map();
+const INFLIGHT_WATER = new Map();
+const INFLIGHT_GEOCODE = new Map();
+const INFLIGHT_BOUNDARY = new Map();
+const INFLIGHT_BOUNDARY_BOUNDS = new Map();
 let previewLayer = null;
 let previewLayerKey = '';
 let dataVersion = 0;
@@ -1578,6 +1586,12 @@ let renderQueue = Promise.resolve();
 let applyingState = false;
 let pendingViewState = null;
 let stateSaveTimer = null;
+
+CACHE_POLICIES.set(STREET_CACHE, { maxEntries: 20, maxBytes: 8 * 1024 * 1024 });
+CACHE_POLICIES.set(WATER_CACHE, { maxEntries: 20, maxBytes: 5 * 1024 * 1024 });
+CACHE_POLICIES.set(GEOCODE_CACHE, { maxEntries: 120, maxBytes: 512 * 1024 });
+CACHE_POLICIES.set(BOUNDARY_CACHE, { maxEntries: 200, maxBytes: 768 * 1024 });
+CACHE_POLICIES.set(BOUNDARY_BOUNDS_CACHE, { maxEntries: 200, maxBytes: 512 * 1024 });
 
 const $ = id => document.getElementById(id);
 
@@ -2118,6 +2132,49 @@ function abortActiveRequests() {
   activeControllers.clear();
 }
 
+function runSharedRequest(inflightMap, key, work) {
+  if (inflightMap.has(key)) return inflightMap.get(key);
+  const task = (async () => await work())()
+    .finally(() => inflightMap.delete(key));
+  inflightMap.set(key, task);
+  return task;
+}
+
+function cachePolicy(map) {
+  return CACHE_POLICIES.get(map) || { maxEntries: CACHE_MAX_ENTRIES, maxBytes: CACHE_DEFAULT_MAX_BYTES };
+}
+
+function cacheBytes(map) {
+  return CACHE_BYTES.get(map) || 0;
+}
+
+function setCacheBytes(map, value) {
+  CACHE_BYTES.set(map, Math.max(0, value));
+}
+
+function estimateCacheEntryBytes(value) {
+  try {
+    const raw = JSON.stringify(value);
+    if (!raw) return 64;
+    return Math.min(raw.length * 2, 8 * 1024 * 1024);
+  } catch (e) {
+    return 256;
+  }
+}
+
+function cacheDelete(map, key, entry) {
+  const row = entry || map.get(key);
+  if (!row) return;
+  map.delete(key);
+  setCacheBytes(map, cacheBytes(map) - (row.bytes || 0));
+}
+
+function pruneExpiredCache(map, now = Date.now()) {
+  for (const [k, entry] of map.entries()) {
+    if (now - entry.ts > CACHE_TTL_MS) cacheDelete(map, k, entry);
+  }
+}
+
 function cacheKey(areaId, lat, lon, radius) {
   const id = areaId ? `a${areaId}` : `r${lat.toFixed(4)}:${lon.toFixed(4)}:${radius}`;
   return id;
@@ -2126,19 +2183,47 @@ function cacheKey(areaId, lat, lon, radius) {
 function cacheGet(map, key) {
   const entry = map.get(key);
   if (!entry) return null;
-  if (Date.now() - entry.ts > CACHE_TTL_MS) { map.delete(key); return null; }
+  if (Date.now() - entry.ts > CACHE_TTL_MS) {
+    cacheDelete(map, key, entry);
+    return null;
+  }
   return entry.value;
 }
 
 function cacheSet(map, key, value) {
-  map.set(key, { value, ts: Date.now() });
-  if (map.size <= CACHE_MAX_ENTRIES) return;
-  let oldestKey = null;
-  let oldestTs = Infinity;
-  for (const [k, v] of map.entries()) {
-    if (v.ts < oldestTs) { oldestTs = v.ts; oldestKey = k; }
+  const now = Date.now();
+  pruneExpiredCache(map, now);
+  const existing = map.get(key);
+  if (existing) cacheDelete(map, key, existing);
+  const entry = { value, ts: now, bytes: estimateCacheEntryBytes(value) };
+  map.set(key, entry);
+  setCacheBytes(map, cacheBytes(map) + entry.bytes);
+
+  const { maxEntries, maxBytes } = cachePolicy(map);
+  while (map.size > maxEntries || cacheBytes(map) > maxBytes) {
+    let oldestKey = null;
+    let oldestEntry = null;
+    for (const [k, v] of map.entries()) {
+      if (!oldestEntry || v.ts < oldestEntry.ts) {
+        oldestKey = k;
+        oldestEntry = v;
+      }
+    }
+    if (!oldestKey || !oldestEntry) break;
+    cacheDelete(map, oldestKey, oldestEntry);
   }
-  if (oldestKey) map.delete(oldestKey);
+}
+
+async function canvasToPngBlob(cvs) {
+  return await new Promise((resolve, reject) => {
+    cvs.toBlob(blob => {
+      if (!blob) {
+        reject(new Error('PNG export failed. Please retry.'));
+        return;
+      }
+      resolve(blob);
+    }, 'image/png');
+  });
 }
 
 function escapeOverpass(value) {
@@ -2293,9 +2378,13 @@ async function fetchStreetsCached(areaId, lat, lon, radius) {
   const key = cacheKey(areaId, lat, lon, radius);
   const cached = cacheGet(STREET_CACHE, key);
   if (cached) return { result: cached, fromCache: true };
-  const result = await fetchStreets(areaId, lat, lon, radius);
-  cacheSet(STREET_CACHE, key, result);
-  return { result, fromCache: false };
+  return await runSharedRequest(INFLIGHT_STREET, key, async () => {
+    const again = cacheGet(STREET_CACHE, key);
+    if (again) return { result: again, fromCache: true };
+    const result = await fetchStreets(areaId, lat, lon, radius);
+    cacheSet(STREET_CACHE, key, result);
+    return { result, fromCache: false };
+  });
 }
 
 async function fetchWaterCached(areaId, lat, lon, radius) {
@@ -2303,18 +2392,26 @@ async function fetchWaterCached(areaId, lat, lon, radius) {
   const key = cacheKey(areaId, lat, lon, radius);
   const cached = cacheGet(WATER_CACHE, key);
   if (cached) return { result: cached, fromCache: true };
-  const result = await fetchWater(areaId, lat, lon, radius);
-  cacheSet(WATER_CACHE, key, result);
-  return { result, fromCache: false };
+  return await runSharedRequest(INFLIGHT_WATER, key, async () => {
+    const again = cacheGet(WATER_CACHE, key);
+    if (again) return { result: again, fromCache: true };
+    const result = await fetchWater(areaId, lat, lon, radius);
+    cacheSet(WATER_CACHE, key, result);
+    return { result, fromCache: false };
+  });
 }
 
 async function fetchGeocodeCached(cityName, countryName) {
   const key = `${cityName.toLowerCase()}|${countryName.toLowerCase()}`;
   const cached = cacheGet(GEOCODE_CACHE, key);
   if (cached) return cached;
-  const data = await fetchJsonWithRetry(`https://photon.komoot.io/api/?q=${encodeURIComponent(cityName + ', ' + countryName)}&limit=1`, { method: 'GET' }, 2, PHOTON_TIMEOUT_MS);
-  cacheSet(GEOCODE_CACHE, key, data);
-  return data;
+  return await runSharedRequest(INFLIGHT_GEOCODE, key, async () => {
+    const again = cacheGet(GEOCODE_CACHE, key);
+    if (again) return again;
+    const data = await fetchJsonWithRetry(`https://photon.komoot.io/api/?q=${encodeURIComponent(cityName + ', ' + countryName)}&limit=1`, { method: 'GET' }, 2, PHOTON_TIMEOUT_MS);
+    cacheSet(GEOCODE_CACHE, key, data);
+    return data;
+  });
 }
 
 function uniqueNames(names) {
@@ -2373,68 +2470,74 @@ function selectTempCityFromFeature(feature) {
 }
 
 async function fetchBoundaryRelation(lat, lon, name, country, countryCode) {
-  const key = `${name.toLowerCase()}|${(country || '').toLowerCase()}|${(countryCode || '').toLowerCase()}|${lat.toFixed(3)}|${lon.toFixed(3)}`;
+  const normName = String(name || '');
+  const key = `${normName.toLowerCase()}|${(country || '').toLowerCase()}|${(countryCode || '').toLowerCase()}|${lat.toFixed(3)}|${lon.toFixed(3)}`;
   const cached = cacheGet(BOUNDARY_CACHE, key);
   if (cached !== null) {
     if (cached === 0) return null;
     return cached;
   }
-  if (!name) { cacheSet(BOUNDARY_CACHE, key, 0); return null; }
-  
-  const safeRegex = escapeOverpassRegex(name);
-  const radius = DEFAULT_RADIUS * 3;
-  const adminLevels = "2|4|6|7|8|9|10";
-  const q = `[out:json][timeout:60];(` +
-    `relation["boundary"="administrative"]["admin_level"~"${adminLevels}"]["name"~"^${safeRegex}$",i](around:${radius},${lat},${lon});` +
-    `relation["boundary"="administrative"]["admin_level"~"${adminLevels}"]["name:en"~"^${safeRegex}$",i](around:${radius},${lat},${lon});` +
-    `);out tags;`;
-  
-  try {
-    const res = await fetchOverpass(q, 2, OVERPASS_TIMEOUT_MS, 'Overpass busy, resolving boundary');
-    const json = await res.json();
-    const rels = (json.elements || []).filter(e => e.type === 'relation');
-    if (!rels.length) { cacheSet(BOUNDARY_CACHE, key, 0); return null; }
-    
-    const score = (rel) => {
-      const lvl = parseInt(rel.tags?.admin_level || '99', 10);
-      const nameTag = rel.tags?.name || rel.tags?.['name:en'] || '';
-      const exact = nameTag.toLowerCase() === name.toLowerCase() ? 0 : 5;
-      const countryName = String(country || '').toLowerCase();
-      const nameLower = nameTag.toLowerCase();
-      const isCountryName = countryName && nameLower === countryName;
-      const lvlScore = isCountryName
-        ? (lvl === 2 ? 0 : lvl === 4 ? 1 : 2)
-        : (lvl === 8 ? 0 : lvl === 9 ? 1 : lvl === 7 ? 2 : lvl === 6 ? 3 : lvl === 4 ? 4 : 5);
-      const code = String(countryCode || '').toUpperCase();
-      const isoTags = [
-        rel.tags?.['ISO3166-1:alpha2'],
-        rel.tags?.['ISO3166-1'],
-        rel.tags?.['ISO3166-1:alpha3'],
-        rel.tags?.['addr:country'],
-        rel.tags?.['is_in:country_code'],
-        rel.tags?.['country_code']
-      ].filter(Boolean).map(v => String(v).toUpperCase());
-      const inCountry = String(rel.tags?.['is_in:country'] || rel.tags?.['addr:country'] || '').toLowerCase();
-      let countryScore = 3;
-      if (code && isoTags.some(v => v === code)) countryScore = 0;
-      else if (countryName && inCountry.includes(countryName)) countryScore = 1;
-      return exact * 10 + lvlScore + countryScore;
-    };
-    rels.sort((a, b) => score(a) - score(b));
-    const best = rels[0];
-    const info = {
-      id: best.id,
-      adminLevel: best.tags?.admin_level || '',
-      name: best.tags?.name || best.tags?.['name:en'] || '',
-      score: score(best)
-    };
-    cacheSet(BOUNDARY_CACHE, key, info);
-    return info;
-  } catch (e) {
-    console.warn('Boundary resolve failed', e);
-    cacheSet(BOUNDARY_CACHE, key, 0);
-    return null;
-  }
+  if (!normName) { cacheSet(BOUNDARY_CACHE, key, 0); return null; }
+
+  return await runSharedRequest(INFLIGHT_BOUNDARY, key, async () => {
+    const again = cacheGet(BOUNDARY_CACHE, key);
+    if (again !== null) return again === 0 ? null : again;
+
+    const safeRegex = escapeOverpassRegex(normName);
+    const radius = DEFAULT_RADIUS * 3;
+    const adminLevels = "2|4|6|7|8|9|10";
+    const q = `[out:json][timeout:60];(` +
+      `relation["boundary"="administrative"]["admin_level"~"${adminLevels}"]["name"~"^${safeRegex}$",i](around:${radius},${lat},${lon});` +
+      `relation["boundary"="administrative"]["admin_level"~"${adminLevels}"]["name:en"~"^${safeRegex}$",i](around:${radius},${lat},${lon});` +
+      `);out tags;`;
+
+    try {
+      const res = await fetchOverpass(q, 2, OVERPASS_TIMEOUT_MS, 'Overpass busy, resolving boundary');
+      const json = await res.json();
+      const rels = (json.elements || []).filter(e => e.type === 'relation');
+      if (!rels.length) { cacheSet(BOUNDARY_CACHE, key, 0); return null; }
+
+      const score = (rel) => {
+        const lvl = parseInt(rel.tags?.admin_level || '99', 10);
+        const nameTag = rel.tags?.name || rel.tags?.['name:en'] || '';
+        const exact = nameTag.toLowerCase() === normName.toLowerCase() ? 0 : 5;
+        const countryName = String(country || '').toLowerCase();
+        const nameLower = nameTag.toLowerCase();
+        const isCountryName = countryName && nameLower === countryName;
+        const lvlScore = isCountryName
+          ? (lvl === 2 ? 0 : lvl === 4 ? 1 : 2)
+          : (lvl === 8 ? 0 : lvl === 9 ? 1 : lvl === 7 ? 2 : lvl === 6 ? 3 : lvl === 4 ? 4 : 5);
+        const code = String(countryCode || '').toUpperCase();
+        const isoTags = [
+          rel.tags?.['ISO3166-1:alpha2'],
+          rel.tags?.['ISO3166-1'],
+          rel.tags?.['ISO3166-1:alpha3'],
+          rel.tags?.['addr:country'],
+          rel.tags?.['is_in:country_code'],
+          rel.tags?.['country_code']
+        ].filter(Boolean).map(v => String(v).toUpperCase());
+        const inCountry = String(rel.tags?.['is_in:country'] || rel.tags?.['addr:country'] || '').toLowerCase();
+        let countryScore = 3;
+        if (code && isoTags.some(v => v === code)) countryScore = 0;
+        else if (countryName && inCountry.includes(countryName)) countryScore = 1;
+        return exact * 10 + lvlScore + countryScore;
+      };
+      rels.sort((a, b) => score(a) - score(b));
+      const best = rels[0];
+      const info = {
+        id: best.id,
+        adminLevel: best.tags?.admin_level || '',
+        name: best.tags?.name || best.tags?.['name:en'] || '',
+        score: score(best)
+      };
+      cacheSet(BOUNDARY_CACHE, key, info);
+      return info;
+    } catch (e) {
+      console.warn('Boundary resolve failed', e);
+      cacheSet(BOUNDARY_CACHE, key, 0);
+      return null;
+    }
+  });
 }
 
 async function fetchBoundaryRelationFromNames(lat, lon, names, country, countryCode) {
@@ -2451,22 +2554,26 @@ async function fetchBoundaryBounds(relationId) {
   const key = String(relationId);
   const cached = cacheGet(BOUNDARY_BOUNDS_CACHE, key);
   if (cached !== null) return cached || null;
-  
-  try {
-    const q = `[out:json][timeout:60];relation(${relationId});out bb;`;
-    const res = await fetchOverpass(q, 2, OVERPASS_TIMEOUT_MS, 'Overpass busy, fetching boundary');
-    const json = await res.json();
-    const rel = (json.elements || []).find(e => e.type === 'relation');
-    const bb = rel?.bounds;
-    if (!bb) { cacheSet(BOUNDARY_BOUNDS_CACHE, key, 0); return null; }
-    const bounds = { minLat: bb.minlat, maxLat: bb.maxlat, minLon: bb.minlon, maxLon: bb.maxlon };
-    cacheSet(BOUNDARY_BOUNDS_CACHE, key, bounds);
-    return bounds;
-  } catch (e) {
-    console.warn('Boundary bounds failed', e);
-    cacheSet(BOUNDARY_BOUNDS_CACHE, key, 0);
-    return null;
-  }
+
+  return await runSharedRequest(INFLIGHT_BOUNDARY_BOUNDS, key, async () => {
+    const again = cacheGet(BOUNDARY_BOUNDS_CACHE, key);
+    if (again !== null) return again || null;
+    try {
+      const q = `[out:json][timeout:60];relation(${relationId});out bb;`;
+      const res = await fetchOverpass(q, 2, OVERPASS_TIMEOUT_MS, 'Overpass busy, fetching boundary');
+      const json = await res.json();
+      const rel = (json.elements || []).find(e => e.type === 'relation');
+      const bb = rel?.bounds;
+      if (!bb) { cacheSet(BOUNDARY_BOUNDS_CACHE, key, 0); return null; }
+      const bounds = { minLat: bb.minlat, maxLat: bb.maxlat, minLon: bb.minlon, maxLon: bb.maxlon };
+      cacheSet(BOUNDARY_BOUNDS_CACHE, key, bounds);
+      return bounds;
+    } catch (e) {
+      console.warn('Boundary bounds failed', e);
+      cacheSet(BOUNDARY_BOUNDS_CACHE, key, 0);
+      return null;
+    }
+  });
 }
 
 // Batch processing helper - uses fetchStreets/fetchWater with progress callbacks
@@ -2475,12 +2582,12 @@ async function fetchData(areaId, lat, lon, radius, onProgress) {
   onProgress?.(20);
   const streets = await fetchStreets(areaId, lat, lon, radius);
   onProgress?.(60);
-  
+
   status('Fetching water bodies...', false, true);
   onProgress?.(70);
   const water = await fetchWater(areaId, lat, lon, radius);
   onProgress?.(85);
-  
+
   onProgress?.(90);
   return { streets, water };
 }
@@ -2651,9 +2758,8 @@ function drawGeometry(ctx, geom, proj, minDistSq, step = 1) {
   if (step > 1) {
     const p = geom[lastIndex];
     const [x, y] = proj(p.lat, p.lon);
-    const dx = x - lastX;
-    const dy = y - lastY;
-    if ((dx * dx + dy * dy) >= minDistSq) ctx.lineTo(x, y);
+    const moved = lastX === null || Math.abs(x - lastX) > 0.001 || Math.abs(y - lastY) > 0.001;
+    if (moved) ctx.lineTo(x, y);
   }
 }
 
@@ -2683,9 +2789,8 @@ function buildProjectedGeometry(layout, step, minDistSq) {
     if (step > 1) {
       const p = geom[lastIndex];
       const [x, y] = proj(p.lat, p.lon);
-      const dx = x - lastX;
-      const dy = y - lastY;
-      if ((dx * dx + dy * dy) >= minDistSq) points.push(x, y);
+      const moved = lastX === null || Math.abs(x - lastX) > 0.001 || Math.abs(y - lastY) > 0.001;
+      if (moved) points.push(x, y);
     }
     return points;
   };
@@ -3424,33 +3529,33 @@ genBtn.onclick = async () => {
 };
 
 // === DOWNLOAD ===
-dlBtn.onclick = () => {
+dlBtn.onclick = async () => {
   if (!data) return;
   status('Generating full resolution...', false, true);
   const { city } = getDisplayNames();
   const size = getSize();
   const bleedPx = getBleedPx();
-  
-  const mapTransform = getExportMapTransform(size);
-  if (bleedPx > 0) {
-    const temp = document.createElement('canvas');
-    temp.width = size.w;
-    temp.height = size.h;
-    render(temp, themeEl.value, false, 1, size, { mapTransform });
-    
-    offscreen.width = size.w + bleedPx * 2;
-    offscreen.height = size.h + bleedPx * 2;
-    const ctx = offscreen.getContext('2d');
-    ctx.fillStyle = expandHex(THEMES[themeEl.value].bg);
-    ctx.fillRect(0, 0, offscreen.width, offscreen.height);
-    ctx.drawImage(temp, bleedPx, bleedPx);
-  } else {
-    offscreen.width = size.w;
-    offscreen.height = size.h;
-    render(offscreen, themeEl.value, false, 1, size, { mapTransform });
-  }
-  
-  offscreen.toBlob(blob => {
+  try {
+    const mapTransform = getExportMapTransform(size);
+    if (bleedPx > 0) {
+      const temp = document.createElement('canvas');
+      temp.width = size.w;
+      temp.height = size.h;
+      render(temp, themeEl.value, false, 1, size, { mapTransform });
+
+      offscreen.width = size.w + bleedPx * 2;
+      offscreen.height = size.h + bleedPx * 2;
+      const ctx = offscreen.getContext('2d');
+      ctx.fillStyle = expandHex(THEMES[themeEl.value].bg);
+      ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+      ctx.drawImage(temp, bleedPx, bleedPx);
+    } else {
+      offscreen.width = size.w;
+      offscreen.height = size.h;
+      render(offscreen, themeEl.value, false, 1, size, { mapTransform });
+    }
+
+    const blob = await canvasToPngBlob(offscreen);
     const a = document.createElement('a');
     const url = URL.createObjectURL(blob);
     a.href = url;
@@ -3459,7 +3564,9 @@ dlBtn.onclick = () => {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     status('Downloaded!');
-  }, 'image/png');
+  } catch (e) {
+    status('Export failed: ' + (e?.message || 'Unable to encode PNG'), true);
+  }
 };
 
 dlSvgBtn.onclick = () => {
@@ -3808,7 +3915,7 @@ batchStart.onclick = async () => {
             offscreen.height = size.h;
             render(offscreen, batchTheme.value, false, 1, size);
             
-            const blob = await new Promise(r => offscreen.toBlob(r, 'image/png'));
+            const blob = await canvasToPngBlob(offscreen);
             return { name: `${cityName.toLowerCase().replace(/\s+/g, '-')}.png`, blob };
           } finally {
             data = oldData;
