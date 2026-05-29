@@ -16,3 +16,8 @@ docs/future/
 node_modules/
 playwright-report/
 test-results/
+
+# Machine-specific local context
+CLAUDE.local.md
+GEMINI.md
+_planning/
